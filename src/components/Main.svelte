@@ -27,17 +27,17 @@
             metric: "10x",
             name: "A new grad",
             description:
-                "I finished from The University of Akron in 2024 with an Associates in Business and a Bachelors in CIS Programming. I will be continuing my post grad journey in technology.",
+                "I earned an Associate of Business and a Bachelor of Science in Computer Information Systems Programming from The University of Akron in 2024. I am currently pursuing advanced studies in technology.",
         },
         {
-            name: "A strong background in programming",
+            name: "A strong programmer",
             description:
-                "With a strong background in programming languages like JavaScript, Python, Java and C++, and frameworks like React, I love bringing ideas to life through interactive web applications.",
+                "Possessing a solid foundation in programming languages such as JavaScript, Python, Java, and C++, as well as frameworks like React, I am passionate about transforming innovative concepts into engaging web applications.",
         },
         {
             name: "A Byteflow Pioneer",
             description:
-                "Byteflow LLC is a small organization started by a group of friends and I to expand our skills outside the classroom.",
+                "Byteflow LLC, a collaborative venture initiated by a group of peers, provided a platform to apply and enhance our academic knowledge through practical experience.",
         },
     ];
 </script>

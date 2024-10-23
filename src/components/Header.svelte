@@ -3,7 +3,7 @@
     export let tabs = [
       { name: "Projects", link: "#projects" },
       { name: "About me", link: "#about" },
-      { name: "Blog", link: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+      { name: "Blog", link: "https://samuelndubuisi.vercel.app/blog.html" },
     ];
   
     let menuOpen = false; // State for the menu
