@@ -1,5 +1,6 @@
 <script>
     import Step from "./Step.svelte";
+    
 
     let steps = [
         {

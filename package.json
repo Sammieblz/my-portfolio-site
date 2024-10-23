@@ -26,5 +26,8 @@
 		"tailwindcss": "^3.4.13",
 		"vite": "^5.0.3"
 	},
-	"type": "module"
+	"type": "module",
+	"dependencies": {
+		"aos": "^2.3.4"
+	}
 }
