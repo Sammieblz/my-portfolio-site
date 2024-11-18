@@ -60,7 +60,7 @@
                 My <span class="text-red-400"> favorite tech</span> includes JavaScript (Frontend: React, Svelte, Angular, NEXT.JS or SvelteKit, TailwindCSS) Node.js + Express.js & MongoDB
                 or Firebase/Vercel! I also love Python and Java.
             </p>
-            <a href="https://docs.google.com/document/d/1kqCf36keq79ki63IY3taIsUicAZs9OEN" target="_blank" rel="noopener noreferrer">
+            <a href="https://docs.google.com/document/d/1_AfELZwVgLlHB0wwCv0CHn36P4Npz1fD" target="_blank" rel="noopener noreferrer">
                 <button
                   class="redShadow mx-auto lg:mr-auto lg:ml-0 text-base sm:text-lg md:text-xl poppins relative overflow-hidden px-6 py-3 group rounded-full bg-white text-slate-950"
                 >
