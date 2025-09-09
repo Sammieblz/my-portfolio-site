@@ -2,78 +2,197 @@
 @tailwind components;
 @tailwind utilities;
 
-html {
-    scroll-behavior: smooth;
-}
-
 * {
-    font-family: 'Roboto', sans-serif;
+    font-family: 'Ubuntu', sans-serif;
 }
 
-h1,
-h2,
-h3,
-.poppins {
-    font-family: 'Poppins', sans-serif;
+.mono {
+    font-family: 'JetBrains Mono', monospace;
 }
 
-.blueShadow {
-    box-shadow: 0px 14px 55px rgba(109, 40, 217, 0.45);
+/* OS-style scrollbars */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
 }
 
-.redShadow {
-    box-shadow: 0px 14px 55px #ef4444;
+::-webkit-scrollbar-track {
+    background: #1f2937;
 }
 
-.specialSpin {
-    animation: spin 5s linear infinite;
+::-webkit-scrollbar-thumb {
+    background: #4b5563;
+    border-radius: 4px;
 }
 
-@keyframes spin {
+::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
+}
+
+/* Window animations */
+.window-enter {
+    animation: windowEnter 0.3s ease-out;
+}
+
+@keyframes windowEnter {
     from {
-        transform: rotate(0deg);
-    }
-
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-.blur-load {
-    background-size: cover;
-    background-position: center;
-}
-
-.img {
-    object-position: center;
-    object-fit: cover;
-}
-
-@keyframes fadeInUp {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
+        opacity: 0;
+        transform: scale(0.9) translateY(-20px);
     }
     to {
-      opacity: 1;
-      transform: translateY(0);
+        opacity: 1;
+        transform: scale(1) translateY(0);
     }
-  }
-  
-  @keyframes fadeIn {
+}
+
+/* Mobile-specific window styles */
+@media (max-width: 767px) {
+    .app-window {
+        border-radius: 8px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    }
+    
+    .window-header {
+        min-height: 40px;
+    }
+    
+    .desktop-icon {
+        transition: transform 0.2s ease;
+    }
+    
+    .desktop-icon:active {
+        transform: scale(0.95);
+    }
+
+    /* Android-like shell helpers */
+    .mobile-status {
+        backdrop-filter: saturate(180%) blur(8px);
+    }
+    .mobile-nav {
+        backdrop-filter: saturate(180%) blur(8px);
+    }
+}
+
+.window-exit {
+    animation: windowExit 0.2s ease-in;
+}
+
+@keyframes windowExit {
     from {
-      opacity: 0;
+        opacity: 1;
+        transform: scale(1) translateY(0);
     }
     to {
-      opacity: 1;
+        opacity: 0;
+        transform: scale(0.9) translateY(-20px);
     }
-  }
-  
-  .fade-up {
-    animation: fadeInUp 0.8s ease-out forwards;
-  }
-  
-  .fade-in {
-    animation: fadeIn 1s ease-out forwards;
-  }
+}
+
+/* Terminal cursor */
+.terminal-cursor {
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
+/* Desktop icon hover effects */
+.desktop-icon:hover {
+    background: rgba(59, 130, 246, 0.1);
+    border-radius: 4px;
+}
+
+/* Taskbar effects */
+.taskbar-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+/* File system animations */
+.file-item:hover {
+    background: rgba(59, 130, 246, 0.1);
+}
+
+/* App window shadows */
+.app-window {
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+/* Kali Linux inspired colors */
+.kali-red {
+    color: #ff6b6b;
+}
+
+.kali-green {
+    color: #51cf66;
+}
+
+.kali-blue {
+    color: #339af0;
+}
+
+.kali-yellow {
+    color: #ffd43b;
+}
+
+/* Terminal styling */
+.terminal {
+    background: #0d1117;
+    border: 1px solid #30363d;
+}
+
+.terminal-header {
+    background: #21262d;
+    border-bottom: 1px solid #30363d;
+}
+
+/* File manager styling */
+.file-manager {
+    background: #0d1117;
+    border: 1px solid #30363d;
+}
+
+.file-manager-header {
+    background: #21262d;
+    border-bottom: 1px solid #30363d;
+}
+
+/* Context menu */
+.context-menu {
+    background: #21262d;
+    border: 1px solid #30363d;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.context-menu-item:hover {
+    background: #30363d;
+}
+
+/* Loading animations */
+.loading-dots::after {
+    content: '';
+    animation: loadingDots 1.5s infinite;
+}
+
+@keyframes loadingDots {
+    0%, 20% { content: ''; }
+    40% { content: '.'; }
+    60% { content: '..'; }
+    80%, 100% { content: '...'; }
+}
+
+/* Glow effects */
+.glow-red {
+    box-shadow: 0 0 20px rgba(255, 107, 107, 0.3);
+}
+
+.glow-green {
+    box-shadow: 0 0 20px rgba(81, 207, 102, 0.3);
+}
+
+.glow-blue {
+    box-shadow: 0 0 20px rgba(51, 154, 240, 0.3);
+}
   
