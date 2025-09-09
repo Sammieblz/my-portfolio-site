@@ -7,22 +7,26 @@ export async function GET({ url }) {
         const lon = url.searchParams.get('lon');
         const city = url.searchParams.get('city');
         
-        if (!lat && !lon && !city) {
-            return json({ error: 'Missing location parameters' }, { status: 400 });
-        }
+        // Default to Cleveland if no parameters provided
+        const fallbackLat = lat || '41.4993';
+        const fallbackLon = lon || '-81.6944';
+        const fallbackCity = city || 'Cleveland, OH';
 
         // Try OpenWeatherMap first if API key is available
         const apiKey = env.OPENWEATHER_API_KEY;
-        if (apiKey && apiKey !== 'your_openweathermap_api_key_here') {
+        if (apiKey && apiKey !== 'your_openweathermap_api_key_here' && apiKey !== '') {
             try {
                 let weatherUrl;
                 if (city) {
-                    weatherUrl = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=imperial`;
+                    weatherUrl = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${apiKey}&units=imperial`;
                 } else {
                     weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=imperial`;
                 }
                 
-                const response = await fetch(weatherUrl);
+                const response = await fetch(weatherUrl, {
+                    timeout: 5000
+                });
+                
                 if (response.ok) {
                     const data = await response.json();
                     return json({
@@ -38,34 +42,43 @@ export async function GET({ url }) {
         }
 
         // Fallback to Open-Meteo (no API key required)
-        const fallbackLat = lat || '41.4993'; // Cleveland, OH
-        const fallbackLon = lon || '-81.6944';
-        
-        const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${fallbackLat}&longitude=${fallbackLon}&current_weather=true&temperature_unit=fahrenheit`);
-        
-        if (response.ok) {
-            const data = await response.json();
-            if (data.current_weather) {
-                return json({
-                    temp: Math.round(data.current_weather.temperature),
-                    condition: mapWeatherCode(data.current_weather.weathercode),
-                    location: city || 'Current Location',
-                    source: 'Open-Meteo'
-                });
+        try {
+            const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${fallbackLat}&longitude=${fallbackLon}&current_weather=true&temperature_unit=fahrenheit`, {
+                timeout: 5000
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.current_weather) {
+                    return json({
+                        temp: Math.round(data.current_weather.temperature),
+                        condition: mapWeatherCode(data.current_weather.weathercode),
+                        location: fallbackCity,
+                        source: 'Open-Meteo'
+                    });
+                }
             }
+        } catch (error) {
+            console.log('Open-Meteo failed, using simulation:', error.message);
         }
 
         // Final fallback - return default data
         return json({
             temp: 72,
             condition: 'sunny',
-            location: 'Current Location',
+            location: fallbackCity,
             source: 'simulation'
         });
 
     } catch (error) {
         console.error('Weather API error:', error);
-        return json({ error: 'Failed to fetch weather data' }, { status: 500 });
+        // Return default data instead of error to prevent 500
+        return json({
+            temp: 72,
+            condition: 'sunny',
+            location: 'Current Location',
+            source: 'simulation'
+        });
     }
 }
 

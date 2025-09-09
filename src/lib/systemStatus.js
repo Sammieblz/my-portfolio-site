@@ -12,9 +12,9 @@ export const systemStatus = writable({
         location: 'Current Location'
     },
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    online: navigator.onLine,
-    deviceMemory: navigator.deviceMemory || 'unknown',
-    hardwareConcurrency: navigator.hardwareConcurrency || 'unknown'
+    online: true,
+    deviceMemory: 'unknown',
+    hardwareConcurrency: 'unknown'
 });
 
 // Get device status from API
@@ -36,9 +36,11 @@ async function getDeviceStatus() {
                 online: data.online
             }));
         } else {
-            throw new Error(`API error: ${response.status}`);
+            console.warn('Device API failed, using browser fallback');
+            getBrowserDeviceStatus();
         }
-    } catch {
+    } catch (error) {
+        console.warn('Device API error, using browser fallback:', error.message);
         getBrowserDeviceStatus();
     }
 }
