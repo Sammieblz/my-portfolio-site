@@ -72,9 +72,23 @@
         {
             icon: 'fab fa-linkedin',
             label: 'LinkedIn',
-            value: 'linkedin.com/in/samuel-ndubuisi-a4792a220',
+            value: 'linkedin.com/in/samuel-n-a4792a220',
             color: 'kali-blue',
-            action: () => window.open('https://www.linkedin.com/in/samuel-ndubuisi-a4792a220', '_blank')
+            action: () => window.open('https://www.linkedin.com/in/samuel-n-a4792a220/', '_blank')
+        },
+        {
+            icon: 'fab fa-instagram',
+            label: 'Instagram',
+            value: 'instagram.com/Sammieblz',
+            color: 'kali-purple',
+            action: () => window.open('https://www.instagram.com/Sammieblz/', '_blank')
+        },
+        {
+            icon: 'fab fa-discord',
+            label: 'Discord',
+            value: 'Discord Server',
+            color: 'kali-indigo',
+            action: () => window.open('https://discord.com/channels/999904657151381514/1208547758336901170', '_blank')
         },
         {
             icon: 'fas fa-map-marker-alt',

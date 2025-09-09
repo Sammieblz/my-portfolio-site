@@ -37,6 +37,24 @@
             icon: 'fas fa-envelope',
             color: 'kali-blue',
             action: () => openApp('contact', { title: 'Contact Me', width: 600, height: 500 })
+        },
+        {
+            name: 'Weather',
+            icon: 'fas fa-cloud-sun',
+            color: 'kali-yellow',
+            action: () => openApp('weather', { title: 'Weather', width: 800, height: 600 })
+        },
+        {
+            name: 'Clock',
+            icon: 'fas fa-clock',
+            color: 'kali-green',
+            action: () => openApp('clock', { title: 'Clock', width: 700, height: 500 })
+        },
+        {
+            name: 'Memory',
+            icon: 'fas fa-brain',
+            color: 'kali-purple',
+            action: () => openApp('memory', { title: 'Memory Game', width: 700, height: 600 })
         }
     ];
 

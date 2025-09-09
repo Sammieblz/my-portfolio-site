@@ -37,6 +37,24 @@
             label: 'Contact Me',
             icon: 'fas fa-envelope',
             color: 'kali-blue'
+        },
+        {
+            id: 'weather',
+            label: 'Weather',
+            icon: 'fas fa-cloud-sun',
+            color: 'kali-yellow'
+        },
+        {
+            id: 'clock',
+            label: 'Clock',
+            icon: 'fas fa-clock',
+            color: 'kali-green'
+        },
+        {
+            id: 'memory',
+            label: 'Memory Game',
+            icon: 'fas fa-brain',
+            color: 'kali-purple'
         }
     ];
 

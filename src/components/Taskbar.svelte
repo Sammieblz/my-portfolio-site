@@ -1,10 +1,18 @@
 <script>
+    import { onMount } from 'svelte';
+    import { systemStatus, initSystemStatus, getBatteryIcon, getWiFiIcon, getWeatherIcon } from '../lib/systemStatus.js';
+    
     export let openWindows = [];
     export let activeWindow = null;
     export let openApp;
     export let focusWindow;
 
     let showStartMenu = false;
+    let status = $systemStatus;
+
+    onMount(() => {
+        initSystemStatus();
+    });
 
     function toggleStartMenu() {
         showStartMenu = !showStartMenu;
@@ -71,16 +79,24 @@
 
     <!-- System Tray -->
     <div class="flex items-center gap-2">
+        <!-- Weather -->
         <div class="flex items-center gap-1 text-xs">
-            <i class="fas fa-wifi"></i>
-            <span class="hidden sm:block">100%</span>
+            <i class="{getWeatherIcon(status.weather.condition)} text-yellow-400"></i>
+            <span class="hidden sm:block">{status.weather.temp}°F</span>
         </div>
+        <!-- WiFi -->
         <div class="flex items-center gap-1 text-xs">
-            <i class="fas fa-battery-full"></i>
-            <span class="hidden sm:block">85%</span>
+            <i class="{getWiFiIcon(status.wifi)}"></i>
+            <span class="hidden sm:block">{status.wifi}%</span>
         </div>
+        <!-- Battery -->
+        <div class="flex items-center gap-1 text-xs">
+            <i class="{getBatteryIcon(status.battery, status.charging)}"></i>
+            <span class="hidden sm:block">{status.battery}%</span>
+        </div>
+        <!-- Time -->
         <div class="text-xs mono">
-            {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            {status.time}
         </div>
     </div>
 </div>
@@ -126,6 +142,29 @@
                     <i class="fas fa-envelope kali-blue"></i>
                     <span>Contact</span>
                 </button>
+                <button
+                    class="w-full text-left px-3 py-2 rounded hover:bg-gray-700 flex items-center gap-3"
+                    on:click={() => { openApp('weather'); showStartMenu = false; }}
+                >
+                    <i class="fas fa-cloud-sun kali-yellow"></i>
+                    <span>Weather</span>
+                </button>
+                        <button
+                            class="w-full text-left px-3 py-2 rounded hover:bg-gray-700 flex items-center gap-3"
+                            on:click={() => { openApp('clock'); showStartMenu = false; }}
+                        >
+                            <i class="fas fa-clock kali-green"></i>
+                            <span>Clock</span>
+                        </button>
+                        <div class="border-t border-gray-600 my-2"></div>
+                        <div class="text-xs font-semibold text-gray-400 mb-2 px-3">Games</div>
+                        <button
+                            class="w-full text-left px-3 py-2 rounded hover:bg-gray-700 flex items-center gap-3"
+                            on:click={() => { openApp('memory'); showStartMenu = false; }}
+                        >
+                            <i class="fas fa-brain kali-purple"></i>
+                            <span>Memory Game</span>
+                        </button>
             </div>
         </div>
     </div>

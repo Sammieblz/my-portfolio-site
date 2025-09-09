@@ -1,14 +1,18 @@
 <script>
 	import { onMount } from 'svelte';
+	import { systemStatus, initSystemStatus, getBatteryIcon, getWiFiIcon, getWeatherIcon } from '../lib/systemStatus.js';
 	import Terminal from './Terminal.svelte';
 	import FileManager from './FileManager.svelte';
 	import ProjectViewer from './ProjectViewer.svelte';
 	import ResumeViewer from './ResumeViewer.svelte';
 	import AboutApp from './AboutApp.svelte';
 	import ContactApp from './ContactApp.svelte';
+	import WeatherApp from './WeatherApp.svelte';
+	import ClockApp from './ClockApp.svelte';
+	import MemoryGame from './MemoryGame.svelte';
 
-	let activeApp = null; // 'terminal' | 'file-manager' | 'projects' | 'resume' | 'about' | 'contact'
-	let timeString = '';
+	let activeApp = null; // 'terminal' | 'file-manager' | 'projects' | 'resume' | 'about' | 'contact' | 'weather' | 'clock' | 'memory'
+	let status = $systemStatus;
 
 	const apps = [
 		{ key: 'terminal', name: 'Terminal', icon: 'fas fa-terminal', color: 'text-green-400' },
@@ -16,7 +20,10 @@
 		{ key: 'projects', name: 'Projects', icon: 'fab fa-github', color: 'text-yellow-300' },
 		{ key: 'resume', name: 'Resume', icon: 'fas fa-file-pdf', color: 'text-red-400' },
 		{ key: 'about', name: 'About', icon: 'fas fa-user', color: 'text-pink-400' },
-		{ key: 'contact', name: 'Contact', icon: 'fas fa-envelope', color: 'text-blue-300' }
+		{ key: 'contact', name: 'Contact', icon: 'fas fa-envelope', color: 'text-blue-300' },
+		{ key: 'weather', name: 'Weather', icon: 'fas fa-cloud-sun', color: 'text-yellow-400' },
+		{ key: 'clock', name: 'Clock', icon: 'fas fa-clock', color: 'text-green-400' },
+		{ key: 'memory', name: 'Memory', icon: 'fas fa-brain', color: 'text-purple-400' }
 	];
 
 	function openApp(key) {
@@ -27,12 +34,7 @@
 	}
 
 	onMount(() => {
-		const updateTime = () => {
-			timeString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-		};
-		updateTime();
-		const interval = setInterval(updateTime, 30000);
-		return () => clearInterval(interval);
+		initSystemStatus();
 	});
 </script>
 
@@ -40,11 +42,23 @@
 <div class="mobile-shell h-screen w-screen bg-[rgb(13,17,23)] text-white overflow-hidden flex flex-col">
 	<!-- Status Bar -->
 	<div class="mobile-status flex items-center justify-between px-3 py-2 text-xs bg-gray-900/80 border-b border-gray-800">
-		<div class="font-medium">{timeString}</div>
+		<div class="font-medium">{status.time}</div>
 		<div class="flex items-center gap-2">
-			<i class="fas fa-signal"></i>
-			<i class="fas fa-wifi"></i>
-			<i class="fas fa-battery-full"></i>
+			<!-- Weather -->
+			<div class="flex items-center gap-1">
+				<i class="{getWeatherIcon(status.weather.condition)} text-yellow-400"></i>
+				<span class="text-[10px]">{status.weather.temp}°F</span>
+			</div>
+			<!-- WiFi -->
+			<div class="flex items-center gap-1">
+				<i class="{getWiFiIcon(status.wifi)}"></i>
+				<span class="text-[10px]">{status.wifi}%</span>
+			</div>
+			<!-- Battery -->
+			<div class="flex items-center gap-1">
+				<i class="{getBatteryIcon(status.battery, status.charging)}"></i>
+				<span class="text-[10px]">{status.battery}%</span>
+			</div>
 		</div>
 	</div>
 
@@ -94,6 +108,12 @@
 						<AboutApp />
 					{:else if activeApp === 'contact'}
 						<ContactApp />
+					{:else if activeApp === 'weather'}
+						<WeatherApp />
+					{:else if activeApp === 'clock'}
+						<ClockApp />
+					{:else if activeApp === 'memory'}
+						<MemoryGame />
 					{/if}
 				</div>
 			</div>

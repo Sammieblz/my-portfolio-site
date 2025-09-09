@@ -7,6 +7,9 @@
     import ResumeViewer from './ResumeViewer.svelte';
     import AboutApp from './AboutApp.svelte';
     import ContactApp from './ContactApp.svelte';
+import WeatherApp from './WeatherApp.svelte';
+import ClockApp from './ClockApp.svelte';
+import MemoryGame from './MemoryGame.svelte';
     import DesktopIcons from './DesktopIcons.svelte';
     import ContextMenu from './ContextMenu.svelte';
     import Window from './Window.svelte';
@@ -94,7 +97,10 @@
             'projects': 'GitHub Projects',
             'resume': 'Resume.pdf',
             'about': 'About Samuel',
-            'contact': 'Contact Me'
+            'contact': 'Contact Me',
+            'weather': 'Weather',
+            'clock': 'Clock',
+            'memory': 'Memory Game'
         };
         return titles[appType] || 'Application';
     }
@@ -228,6 +234,27 @@
                 />
             {:else if window.type === 'contact'}
                 <ContactApp 
+                    {window}
+                    {closeWindow}
+                    {minimizeWindow}
+                    {maximizeWindow}
+                />
+            {:else if window.type === 'weather'}
+                <WeatherApp 
+                    {window}
+                    {closeWindow}
+                    {minimizeWindow}
+                    {maximizeWindow}
+                />
+            {:else if window.type === 'clock'}
+                <ClockApp 
+                    {window}
+                    {closeWindow}
+                    {minimizeWindow}
+                    {maximizeWindow}
+                />
+            {:else if window.type === 'memory'}
+                <MemoryGame 
                     {window}
                     {closeWindow}
                     {minimizeWindow}

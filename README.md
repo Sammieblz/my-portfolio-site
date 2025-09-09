@@ -29,6 +29,15 @@ A revolutionary portfolio website that simulates a complete operating system exp
 - **Command History**: Arrow key navigation through previous commands
 - **Real-time Prompt**: Shows current directory in prompt
 
+#### **Memory Game**
+- **Card Matching**: Find matching pairs of cards with beautiful icons
+- **Multiple Difficulty Levels**: Easy (4x4), Medium (6x6), Hard (8x8)
+- **Advanced Scoring**: Time bonuses, move efficiency, and difficulty multipliers
+- **Game Statistics**: Detailed stats including efficiency and completion rate
+- **Progress Tracking**: Visual progress bar and real-time completion percentage
+- **Cross-platform**: Works seamlessly on desktop and mobile devices
+- **Score Tracking**: Persistent high scores saved locally
+
 #### **File Manager**
 - **Hierarchical Navigation**: Browse through simulated file system
 - **Multiple View Modes**: Grid and list view options
@@ -285,8 +294,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 **Samuel Ndubuisi**
 - **Email**: samuelndubuisi32@gmail.com
 - **GitHub**: [@Sammieblz](https://github.com/Sammieblz)
-- **LinkedIn**: [Samuel Ndubuisi](https://www.linkedin.com/in/samuel-ndubuisi-a4792a220)
-- **Portfolio**: [Live Site](https://your-portfolio-url.com)
+- **LinkedIn**: [Samuel Ndubuisi](https://www.linkedin.com/in/samuel-n-a4792a220/)
+- **Instagram**: [@Sammieblz](https://www.instagram.com/Sammieblz/)
+- **Discord**: [Join Server](https://discord.com/channels/999904657151381514/1208547758336901170)
+- **Portfolio**: [Live Site](https://sndubuisi.vercel.app)
 
 ## 🙏 **Acknowledgments**
 

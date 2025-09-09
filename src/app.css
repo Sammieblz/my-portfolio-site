@@ -75,6 +75,7 @@
 
 .window-exit {
     animation: windowExit 0.2s ease-in;
+    display: none !important;
 }
 
 @keyframes windowExit {

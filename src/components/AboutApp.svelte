@@ -85,9 +85,49 @@
                     </div>
                     <h2 class="text-2xl font-bold text-white mb-2">Samuel Ndubuisi</h2>
                     <p class="text-lg text-gray-300 mb-4">Full Stack Developer</p>
-                    <div class="flex justify-center gap-4 text-sm text-gray-400">
+                    <div class="flex justify-center gap-4 text-sm text-gray-400 mb-4">
                         <span><i class="fas fa-map-marker-alt mr-1"></i> Akron, Ohio</span>
                         <span><i class="fas fa-envelope mr-1"></i> samuelndubuisi32@gmail.com</span>
+                    </div>
+                    
+                    <!-- Social Links -->
+                    <div class="flex justify-center gap-4">
+                        <a 
+                            href="https://www.linkedin.com/in/samuel-n-a4792a220/" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            class="w-10 h-10 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center transition-colors"
+                            title="LinkedIn"
+                        >
+                            <i class="fab fa-linkedin-in text-white"></i>
+                        </a>
+                        <a 
+                            href="https://github.com/Sammieblz" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            class="w-10 h-10 bg-gray-800 hover:bg-gray-700 rounded-full flex items-center justify-center transition-colors"
+                            title="GitHub"
+                        >
+                            <i class="fab fa-github text-white"></i>
+                        </a>
+                        <a 
+                            href="https://www.instagram.com/Sammieblz/" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            class="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-full flex items-center justify-center transition-colors"
+                            title="Instagram"
+                        >
+                            <i class="fab fa-instagram text-white"></i>
+                        </a>
+                        <a 
+                            href="https://discord.com/channels/999904657151381514/1208547758336901170" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            class="w-10 h-10 bg-indigo-600 hover:bg-indigo-700 rounded-full flex items-center justify-center transition-colors"
+                            title="Discord"
+                        >
+                            <i class="fab fa-discord text-white"></i>
+                        </a>
                     </div>
                 </div>
 
