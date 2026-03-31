@@ -1,7 +1,9 @@
 <script>
+    import { profile } from '$lib/profile';
+
     export let window;
 
-    let pdfUrl = '/document/SamuelNdubuisiResume-Latest.pdf';
+    let pdfUrl = profile.assets.resumePdf;
     let loading = true;
     let error = null;
     let zoom = 100;
@@ -34,7 +36,7 @@
     function downloadResume() {
         const link = document.createElement('a');
         link.href = pdfUrl;
-        link.download = 'Samuel_Ndubuisi_Resume.pdf';
+        link.download = profile.assets.resumeDownloadName;
         link.click();
     }
 
@@ -157,7 +159,7 @@
                     src={pdfUrl}
                     class="border border-gray-300 rounded shadow-lg"
                     style="width: {zoom}%; height: {zoom * 1.4}px;"
-                    title="Samuel Ndubuisi Resume PDF"
+                    title="{profile.name} Resume PDF"
                     on:load={checkIframeLoad}
                     on:error={handleError}
                 ></iframe>
@@ -169,7 +171,7 @@
     <div class="px-4 py-2 border-t border-gray-600 bg-gray-800 text-xs text-gray-400">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-4">
-                <span>Samuel Ndubuisi - Full Stack Developer</span>
+                <span>{profile.name} - {profile.role}</span>
                 <span>•</span>
                 <span>Last updated: {new Date().toLocaleDateString()}</span>
             </div>

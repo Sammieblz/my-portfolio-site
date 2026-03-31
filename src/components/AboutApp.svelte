@@ -1,4 +1,6 @@
 <script>
+    import { profile } from '$lib/profile';
+
     export let window;
     export let closeWindow;
     export let minimizeWindow;
@@ -11,8 +13,11 @@
         { id: 'overview', label: 'Overview', icon: 'fas fa-user' },
         { id: 'education', label: 'Education', icon: 'fas fa-graduation-cap' },
         { id: 'experience', label: 'Experience', icon: 'fas fa-briefcase' },
+        { id: 'hackathons', label: 'Hackathons', icon: 'fas fa-trophy' },
         { id: 'skills', label: 'Skills', icon: 'fas fa-code' }
     ];
+
+    const projectAccent = ['border-blue-500', 'border-green-500', 'border-yellow-500', 'border-purple-500', 'border-orange-500'];
 
     const skills = {
         'Frontend': [
@@ -78,22 +83,22 @@
                 <div class="text-center">
                     <div class="w-32 h-32 rounded-full mx-auto mb-4 overflow-hidden border-4 border-gray-600">
                         <img 
-                            src="/images/sam-svelte-bg.png" 
-                            alt="Samuel Ndubuisi" 
+                            src={profile.assets.profileImage}
+                            alt={profile.name}
                             class="w-full h-full object-cover"
                         />
                     </div>
-                    <h2 class="text-2xl font-bold text-white mb-2">Samuel Ndubuisi</h2>
-                    <p class="text-lg text-gray-300 mb-4">Full Stack Developer</p>
+                    <h2 class="text-2xl font-bold text-white mb-2">{profile.name}</h2>
+                    <p class="text-lg text-gray-300 mb-4">{profile.role}</p>
                     <div class="flex justify-center gap-4 text-sm text-gray-400 mb-4">
-                        <span><i class="fas fa-map-marker-alt mr-1"></i> Akron, Ohio</span>
-                        <span><i class="fas fa-envelope mr-1"></i> samuelndubuisi32@gmail.com</span>
+                        <span><i class="fas fa-map-marker-alt mr-1"></i> {profile.location}</span>
+                        <span><i class="fas fa-envelope mr-1"></i> {profile.email}</span>
                     </div>
                     
                     <!-- Social Links -->
                     <div class="flex justify-center gap-4">
                         <a 
-                            href="https://www.linkedin.com/in/samuel-n-a4792a220/" 
+                            href={profile.links.linkedin}
                             target="_blank" 
                             rel="noopener noreferrer"
                             class="w-10 h-10 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center transition-colors"
@@ -102,7 +107,7 @@
                             <i class="fab fa-linkedin-in text-white"></i>
                         </a>
                         <a 
-                            href="https://github.com/Sammieblz" 
+                            href={profile.links.github}
                             target="_blank" 
                             rel="noopener noreferrer"
                             class="w-10 h-10 bg-gray-800 hover:bg-gray-700 rounded-full flex items-center justify-center transition-colors"
@@ -111,7 +116,7 @@
                             <i class="fab fa-github text-white"></i>
                         </a>
                         <a 
-                            href="https://www.instagram.com/Sammieblz/" 
+                            href={profile.links.instagram}
                             target="_blank" 
                             rel="noopener noreferrer"
                             class="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-full flex items-center justify-center transition-colors"
@@ -120,7 +125,7 @@
                             <i class="fab fa-instagram text-white"></i>
                         </a>
                         <a 
-                            href="https://discord.com/channels/999904657151381514/1208547758336901170" 
+                            href={profile.links.discord}
                             target="_blank" 
                             rel="noopener noreferrer"
                             class="w-10 h-10 bg-indigo-600 hover:bg-indigo-700 rounded-full flex items-center justify-center transition-colors"
@@ -262,35 +267,79 @@
                 </div>
 
                 <div class="bg-gray-800 rounded-lg p-6">
-                    <h3 class="text-lg font-semibold text-white mb-4">Notable Projects</h3>
+                    <h3 class="text-lg font-semibold text-white mb-4">Featured Projects</h3>
                     <div class="space-y-4">
-                        <div class="border-l-4 border-blue-500 pl-4">
-                            <h4 class="font-semibold text-white">Cleveland Tennis Lessons</h4>
-                            <p class="text-sm text-gray-300">Web application for booking tennis lessons</p>
-                            <p class="text-xs text-gray-400">React, Next.js, Express.js, Emailjs, Calendly</p>
-                        </div>
-                        <div class="border-l-4 border-green-500 pl-4">
-                            <h4 class="font-semibold text-white">V3locity</h4>
-                            <p class="text-sm text-gray-300">React Native digital speedometer with real-time tracking</p>
-                            <p class="text-xs text-gray-400">Next.js, React Native, Vercel</p>
-                        </div>
-                        <div class="border-l-4 border-yellow-500 pl-4">
-                            <h4 class="font-semibold text-white">Brack App</h4>
-                            <p class="text-sm text-gray-300">Digital book tracking webapp for reading progress</p>
-                            <p class="text-xs text-gray-400">TypeScript, React, Node.js</p>
-                        </div>
-                        <div class="border-l-4 border-purple-500 pl-4">
-                            <h4 class="font-semibold text-white">The Ignitor App</h4>
-                            <p class="text-sm text-gray-300">AI-powered motivational quotes with OpenAI and 11Labs</p>
-                            <p class="text-xs text-gray-400">TypeScript, AI Integration, Speech Synthesis</p>
-                        </div>
-                        <div class="border-l-4 border-orange-500 pl-4">
-                            <h4 class="font-semibold text-white">Vision Playground</h4>
-                            <p class="text-sm text-gray-300">Computer vision experimentation and development</p>
-                            <p class="text-xs text-gray-400">Python, OpenCV, Computer Vision</p>
-                        </div>
+                        {#each profile.featuredProjects as p, i}
+                            <div class="border-l-4 {projectAccent[i % projectAccent.length]} pl-4">
+                                <a
+                                    href={p.href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="font-semibold text-white hover:text-blue-300"
+                                >{p.title}</a>
+                                <p class="text-sm text-gray-300 mt-1">{p.description}</p>
+                                <p class="text-xs text-gray-400 mt-1">{p.tech}</p>
+                            </div>
+                        {/each}
                     </div>
                 </div>
+            </div>
+
+        {:else if currentTab === 'hackathons'}
+            <div class="space-y-6">
+                {#each profile.hackathons as h}
+                    <div class="bg-gray-800 rounded-lg p-6 space-y-4">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="px-2 py-1 rounded text-xs bg-yellow-900/50 text-yellow-200 font-medium">
+                                {h.event}
+                            </span>
+                        </div>
+                        <div>
+                            <a
+                                href={h.projectUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="text-xl font-semibold text-white hover:text-blue-300"
+                            >{h.project}</a>
+                            <p class="text-sm text-gray-400 mt-1">
+                                <a href={h.eventUrl} target="_blank" rel="noopener noreferrer" class="hover:text-gray-300">{h.event}</a>
+                                · <a href={h.projectUrl} target="_blank" rel="noopener noreferrer" class="hover:text-gray-300">Devpost</a>
+                            </p>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-300 mb-2">Awards</h4>
+                            <ul class="space-y-1 text-sm text-gray-300">
+                                {#each h.awards as award}
+                                    <li class="flex items-start gap-2">
+                                        <i class="fas fa-award text-yellow-500 mt-0.5"></i>
+                                        {award}
+                                    </li>
+                                {/each}
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-300 mb-1">My role</h4>
+                            <p class="text-gray-300 text-sm leading-relaxed">{h.role}</p>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-300 mb-2">About</h4>
+                            {#each h.about as paragraph}
+                                <p class="text-gray-300 text-sm leading-relaxed mb-2 last:mb-0">{paragraph}</p>
+                            {/each}
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-300 mb-2">What we learned</h4>
+                            <ul class="space-y-2 text-sm text-gray-300 list-disc list-inside">
+                                {#each h.learned as item}
+                                    <li>{item}</li>
+                                {/each}
+                            </ul>
+                        </div>
+                        <p class="text-xs text-gray-400 pt-2 border-t border-gray-700">
+                            Built with: {h.stack}
+                        </p>
+                    </div>
+                {/each}
             </div>
 
         {:else if currentTab === 'skills'}

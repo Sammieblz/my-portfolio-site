@@ -1,6 +1,7 @@
 <script>
     import { onMount } from 'svelte';
-    
+    import { profile } from '$lib/profile';
+
     export let window;
     export let closeWindow;
     export let minimizeWindow;
@@ -11,9 +12,8 @@
     let error = null;
     let selectedProject = null;
 
-    // GitHub API configuration
-    const GITHUB_USERNAME = 'Sammieblz';
-    const GITHUB_API_URL = `https://api.github.com/users/${GITHUB_USERNAME}/repos?sort=updated&per_page=10`;
+    const GITHUB_USERNAME = profile.githubUsername;
+    const GITHUB_API_URL = `https://api.github.com/users/${GITHUB_USERNAME}/repos?sort=updated&per_page=40`;
 
     async function fetchProjects() {
         try {
@@ -28,6 +28,11 @@
             
             // Filter and format projects - exclude unwanted projects
             const excludedProjects = ['weather-app', 'IT-2320-interactive-internet-programming-projects', 'MyWebsite'];
+            const order = profile.featuredRepoOrder;
+            const ranked = (name) => {
+                const i = order.indexOf(name);
+                return i === -1 ? order.length : i;
+            };
             projects = data
                 .filter(repo => !repo.fork && repo.name !== 'Sammieblz' && !excludedProjects.includes(repo.name))
                 .map(repo => ({
@@ -40,23 +45,52 @@
                     stars: repo.stargazers_count,
                     forks: repo.forks_count,
                     updated: new Date(repo.updated_at).toLocaleDateString(),
+                    updatedAt: repo.updated_at,
                     topics: repo.topics || [],
                     size: repo.size,
                     cloneUrl: repo.clone_url,
                     sshUrl: repo.ssh_url
                 }))
-                .slice(0, 6); // Limit to 6 projects
+                .sort((a, b) => {
+                    const ra = ranked(a.name);
+                    const rb = ranked(b.name);
+                    if (ra !== rb) return ra - rb;
+                    return new Date(b.updatedAt) - new Date(a.updatedAt);
+                })
+                .map(({ updatedAt, ...rest }) => rest)
+                .slice(0, 6);
                 
         } catch (err) {
             console.error('Error fetching projects:', err);
             error = err.message;
             
+            const fbRank = (name) => {
+                const i = profile.featuredRepoOrder.indexOf(name);
+                return i === -1 ? profile.featuredRepoOrder.length : i;
+            };
             // Fallback to hardcoded projects if API fails
             projects = [
                 {
+                    id: 10,
+                    name: 'AITT',
+                    description:
+                        'AITT: behavioral interview training for CS students — Next.js app, Python services, local model workspace.',
+                    url: 'https://github.com/Sammieblz/AITT',
+                    homepage: null,
+                    language: 'TypeScript',
+                    stars: 0,
+                    forks: 0,
+                    updated: new Date().toLocaleDateString(),
+                    topics: ['nextjs', 'python', 'ai'],
+                    size: 4096,
+                    cloneUrl: 'https://github.com/Sammieblz/AITT.git',
+                    sshUrl: 'git@github.com/Sammieblz/AITT.git'
+                },
+                {
                     id: 1,
                     name: 'brack-app',
-                    description: 'Brack (Book Tracking) is a digital book tracking webapp that allows users to keep track of the books they are reading and progress of reading.',
+                    description:
+                        'Brack — book tracking with progress, streaks, social features, and native apps via Capacitor.',
                     url: 'https://github.com/Sammieblz/brack-app',
                     homepage: null,
                     language: 'TypeScript',
@@ -71,9 +105,9 @@
                 {
                     id: 2,
                     name: 'my-portfolio-site',
-                    description: 'My portfolio site with a Kali Linux GUI feel.',
+                    description: 'Portfolio site with a Kali Linux–inspired desktop UI.',
                     url: 'https://github.com/Sammieblz/my-portfolio-site',
-                    homepage: null,
+                    homepage: profile.links.portfolio,
                     language: 'Svelte',
                     stars: 1,
                     forks: 0,
@@ -100,23 +134,24 @@
                 },
                 {
                     id: 4,
-                    name: 'V310city',
-                    description: 'React-native (mobile replica) of "my-speedometer" project: Digital speedometer that tracks a user\'s speed using speed logic and position in real time using a compass.',
-                    url: 'https://github.com/Sammieblz/V310city',
+                    name: 'V3l0city',
+                    description:
+                        'Digital speedometer (Expo / React Native) with GPS, compass, and Kalman-filtered speed.',
+                    url: 'https://github.com/Sammieblz/V3l0city',
                     homepage: null,
                     language: 'TypeScript',
                     stars: 0,
                     forks: 0,
                     updated: '2024-06-21',
-                    topics: ['react-native', 'typescript', 'speedometer', 'mobile'],
+                    topics: ['expo', 'react-native', 'gps', 'typescript'],
                     size: 2048,
-                    cloneUrl: 'https://github.com/Sammieblz/V310city.git',
-                    sshUrl: 'git@github.com/Sammieblz/V310city.git'
+                    cloneUrl: 'https://github.com/Sammieblz/V3l0city.git',
+                    sshUrl: 'git@github.com/Sammieblz/V3l0city.git'
                 },
                 {
                     id: 5,
                     name: 'VisionPlayground',
-                    description: 'Experimentation with computer vision',
+                    description: 'Computer vision experiments.',
                     url: 'https://github.com/Sammieblz/VisionPlayground',
                     homepage: null,
                     language: 'Python',
@@ -128,7 +163,7 @@
                     cloneUrl: 'https://github.com/Sammieblz/VisionPlayground.git',
                     sshUrl: 'git@github.com/Sammieblz/VisionPlayground.git'
                 }
-            ];
+            ].sort((a, b) => fbRank(a.name) - fbRank(b.name));
         } finally {
             loading = false;
         }

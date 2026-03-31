@@ -1,6 +1,10 @@
 <script>
     import { onMount } from 'svelte';
-    
+    import { profile, getTerminalFeaturedProjectsLines } from '$lib/profile';
+
+    const HOME = profile.terminal.homeDir;
+    const USER = profile.terminal.userAtHost;
+
     export let window;
     export let closeWindow;
     export let minimizeWindow;
@@ -12,7 +16,11 @@
     let historyIndex = -1;
     let output = [];
     let isProcessing = false;
-    let currentDir = '/home/samuel';
+    let currentDir = HOME;
+
+    function promptLine() {
+        return `${USER}:${currentDir}$`;
+    }
 
     const commands = {
         'help': {
@@ -46,7 +54,7 @@
         },
         'whoami': {
             description: 'Display current user',
-            execute: () => ['samuel@kali-portfolio:~$']
+            execute: () => [profile.name]
         },
         'pwd': {
             description: 'Print working directory',
@@ -56,7 +64,7 @@
             description: 'Change directory',
             execute: (args) => {
                 if (!args[0]) {
-                    currentDir = '/home/samuel';
+                    currentDir = HOME;
                     return [currentDir];
                 }
                 
@@ -67,10 +75,10 @@
                         parts.pop();
                         currentDir = '/' + parts.join('/');
                     } else {
-                        currentDir = '/home/samuel';
+                        currentDir = HOME;
                     }
-                } else if (targetDir === '~' || targetDir === '/home/samuel') {
-                    currentDir = '/home/samuel';
+                } else if (targetDir === '~' || targetDir === HOME) {
+                    currentDir = HOME;
                 } else if (targetDir.startsWith('/')) {
                     currentDir = targetDir;
                 } else {
@@ -89,7 +97,8 @@
                 'Projects/',
                 'resume.pdf',
                 'about.txt',
-                'contact.txt'
+                'contact.txt',
+                'hackathon.txt'
             ]
         },
         'cat': {
@@ -97,10 +106,11 @@
             execute: (args) => {
                 if (!args[0]) return ['Usage: cat <filename>'];
                 
+                const h = profile.hackathons[0];
                 const files = {
                     'about.txt': [
-                        'Samuel Ndubuisi',
-                        'Full Stack Developer',
+                        profile.name,
+                        profile.role,
                         '',
                         'Education:',
                         '  - Associate of Business, University of Akron',
@@ -115,18 +125,39 @@
                         'Experience:',
                         '  - Byteflow LLC Co-founder',
                         '  - Full Stack Development',
-                        '  - Project Management'
+                        '  - Project Management',
+                        ...(h
+                            ? [
+                                    '',
+                                    'Hackathons:',
+                                    `  - ${h.project} @ ${h.event}`
+                              ]
+                            : [])
                     ],
                     'contact.txt': [
                         'Contact Information:',
                         '',
-                        'Email: samuelndubuisi32@gmail.com',
-                        'GitHub: https://github.com/Sammieblz',
-                        'LinkedIn: https://www.linkedin.com/in/samuel-ndubuisi-a4792a220',
+                        `Email: ${profile.email}`,
+                        `GitHub: ${profile.links.github}`,
+                        `LinkedIn: ${profile.links.linkedin}`,
                         '',
-                        'Location: Akron, Ohio',
-                        'Available for: Full-time positions, Freelance work'
-                    ]
+                        `Location: ${profile.location}`,
+                        `Available for: ${profile.contact.availabilityDetails}`
+                    ],
+                    ...(h
+                        ? {
+                              'hackathon.txt': [
+                                  `${h.project} — ${h.event}`,
+                                  '',
+                                  ...h.awards.map((a) => `  * ${a}`),
+                                  '',
+                                  'Devpost:',
+                                  `  ${h.projectUrl}`,
+                                  '',
+                                  `Event: ${h.eventUrl}`
+                              ]
+                          }
+                        : {})
                 };
                 
                 return files[args[0]] || [`cat: ${args[0]}: No such file or directory`];
@@ -134,52 +165,43 @@
         },
         'projects': {
             description: 'Show GitHub projects',
-            execute: () => [
-                'GitHub Projects:',
-                '',
-                '1. Cleveland Tennis Lessons',
-                '   - Web app for booking tennis lessons',
-                '   - Tech: React, Next.js, Express.js, Emailjs, Calendly',
-                '   - URL: https://clevelandtennislessons.com',
-                '',
-                '2. V3locity',
-                '   - React Native digital speedometer',
-                '   - Tech: Next.js, React Native, Vercel',
-                '   - Features: Real-time speed tracking with compass',
-                '',
-                '3. Client Management Portal',
-                '   - CRUD application with dashboard and Kanban board',
-                '   - Tech: Refine Framework, Next.js, Express.js, GraphQL, Ant Design',
-                '   - Features: Custom auth provider, project management'
-            ]
+            execute: () => getTerminalFeaturedProjectsLines()
         },
         'about': {
             description: 'About Samuel',
-            execute: () => [
-                'Samuel Ndubuisi - Full Stack Developer',
-                '',
-                'A passionate developer with expertise in modern web technologies.',
-                'Graduated from The University of Akron with degrees in Business',
-                'and Computer Information Systems Programming.',
-                '',
-                'Co-founder of Byteflow LLC, where I apply academic knowledge',
-                'through practical experience in full-stack development.',
-                '',
-                'Specialized in JavaScript ecosystem including React, Svelte,',
-                'Angular, and Node.js, with experience in Python and Java.'
-            ]
+            execute: () => {
+                const lines = [
+                    `${profile.name} - ${profile.role}`,
+                    '',
+                    'A passionate developer with expertise in modern web technologies.',
+                    'Graduated from The University of Akron with degrees in Business',
+                    'and Computer Information Systems Programming.',
+                    '',
+                    'Co-founder of Byteflow LLC, where I apply academic knowledge',
+                    'through practical experience in full-stack development.',
+                    '',
+                    'Specialized in JavaScript ecosystem including React, Svelte,',
+                    'Angular, and Node.js, with experience in Python and Java.'
+                ];
+                const h = profile.hackathons[0];
+                if (h) {
+                    lines.push('');
+                    lines.push(`Recent: ${h.project} @ ${h.event} — ${h.awards[0] || 'award winner'}`);
+                }
+                return lines;
+            }
         },
         'contact': {
             description: 'Contact information',
             execute: () => [
-                'Contact Samuel Ndubuisi:',
+                `Contact ${profile.name}:`,
                 '',
-                'Email: samuelndubuisi32@gmail.com',
-                'GitHub: https://github.com/Sammieblz',
-                'LinkedIn: https://www.linkedin.com/in/samuel-ndubuisi-a4792a220',
+                `Email: ${profile.email}`,
+                `GitHub: ${profile.links.github}`,
+                `LinkedIn: ${profile.links.linkedin}`,
                 '',
-                'Location: Akron, Ohio',
-                'Status: Available for opportunities'
+                `Location: ${profile.location}`,
+                `Status: ${profile.contact.availability}`
             ]
         },
         'resume': {
@@ -206,10 +228,10 @@
         'neofetch': {
             description: 'System information',
             execute: () => [
-                'samuel@kali-portfolio',
+                USER,
                 '-------------------',
                 'OS: Kali Linux Portfolio v1.0',
-                'Host: Samuel\'s Portfolio',
+                `Host: ${profile.name}'s Portfolio`,
                 'Kernel: SvelteKit 2.0.0',
                 'Shell: Terminal.js',
                 'Terminal: Web Terminal',
@@ -260,7 +282,7 @@
     function handleKeyDown(event) {
         if (event.key === 'Enter') {
             if (commandInput.trim()) {
-                output.push(`samuel@kali-portfolio:~$ ${commandInput}`);
+                output.push(`${promptLine()} ${commandInput}`);
                 commandHistory.unshift(commandInput);
                 historyIndex = -1;
                 executeCommand(commandInput);
@@ -284,10 +306,10 @@
 
     onMount(() => {
         output = [
-            'Welcome to Samuel\'s Portfolio Terminal',
+            profile.terminal.welcomeLine,
             'Type "help" for available commands',
             '',
-            'samuel@kali-portfolio:~$'
+            promptLine()
         ];
         
         if (terminalRef) {
@@ -302,12 +324,12 @@
     <div class="flex-1 p-4 overflow-y-auto">
         {#each output as line (line)}
             <div class="text-sm mono mb-1">
-                {#if line.startsWith('samuel@kali-portfolio')}
+                {#if line.startsWith(USER)}
                     <span class="kali-green">{line.split('$')[0]}$</span>
                     <span class="kali-blue">{line.split('$')[1] || ''}</span>
                 {:else if line.startsWith('Command not found')}
                     <span class="kali-red">{line}</span>
-                {:else if line.startsWith('Available commands') || line.startsWith('GitHub Projects') || line.startsWith('Contact') || line.startsWith('About')}
+                {:else if line.startsWith('Available commands') || line.startsWith('Featured GitHub repos:') || line.startsWith('Hackathon:') || line.startsWith('Contact') || line.startsWith('About')}
                     <span class="kali-yellow font-semibold">{line}</span>
                 {:else if line.startsWith('  ') || line.startsWith('1.') || line.startsWith('2.') || line.startsWith('3.')}
                     <span class="text-gray-300">{line}</span>
@@ -319,7 +341,7 @@
         
         {#if isProcessing}
             <div class="text-sm mono">
-                <span class="kali-green">samuel@kali-portfolio:{currentDir}$</span>
+                <span class="kali-green">{USER}:{currentDir}$</span>
                 <span class="loading-dots kali-blue"></span>
             </div>
         {/if}
@@ -328,7 +350,7 @@
     <!-- Command Input -->
     <div class="p-4 border-t border-gray-600">
         <div class="flex items-center">
-            <span class="kali-green mono text-sm">samuel@kali-portfolio:{currentDir}$</span>
+            <span class="kali-green mono text-sm">{USER}:{currentDir}$</span>
             <input
                 bind:this={terminalRef}
                 bind:value={commandInput}

@@ -119,13 +119,14 @@ src/
 │   ├── +layout.svelte    # App layout wrapper
 │   └── +page.svelte      # Homepage (minimal)
 └── lib/
-    └── index.js          # Utility functions (empty)
+    ├── profile.js        # Single source for bio, links, featured projects, hackathons
+    └── systemStatus.js   # Status bar store (battery, weather, etc.)
 
 static/
 ├── assets/
 │   └── particles.json    # Particles.js configuration
 ├── document/
-│   └── SamuelNdubuisiResume-Latest.pdf # Resume PDF
+│   └── Samuel_Ndubuisi_Resume2.4.pdf # Resume PDF
 ├── images/
 │   ├── sam-svelte-bg.png # Profile image
 │   ├── sam-svelte-bg2.jpg
@@ -217,13 +218,13 @@ npm run preview
 ### **Personal Branding**
 - **Logo**: Replace `static/sam-logo.png` with your logo
 - **Profile Image**: Update `static/images/sam-svelte-bg.png`
-- **Resume**: Replace `static/document/SamuelNdubuisiResume-Latest.pdf`
+- **Resume**: Replace `static/document/Samuel_Ndubuisi_Resume2.4.pdf`
 - **Colors**: Modify color scheme in `src/app.css`
 
 ### **GitHub Integration**
-- **Username**: Update `GITHUB_USERNAME` in `ProjectViewer.svelte`
-- **Excluded Projects**: Modify `excludedProjects` array
-- **Fallback Projects**: Update hardcoded project list
+- **Username & featured order**: Edit `githubUsername` and `featuredRepoOrder` in `src/lib/profile.js` (used by `ProjectViewer.svelte`)
+- **Excluded Projects**: In `ProjectViewer.svelte`, modify the `excludedProjects` array
+- **Fallback Projects**: Update the offline list in `ProjectViewer.svelte` or rely on the API
 
 ### **Particles Animation**
 - **Configuration**: Modify `static/assets/particles.json`

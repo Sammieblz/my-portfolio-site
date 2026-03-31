@@ -1,4 +1,6 @@
 <script>
+    import { profile } from '$lib/profile';
+
     export let window;
     export let closeWindow;
     export let minimizeWindow;
@@ -23,7 +25,7 @@
         submitStatus = null;
 
         try {
-            const response = await fetch('https://formspree.io/f/mqkvbjro', {
+            const response = await fetch(profile.contact.formspreeEndpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -58,42 +60,42 @@
         {
             icon: 'fas fa-envelope',
             label: 'Email',
-            value: 'samuelndubuisi32@gmail.com',
+            value: profile.email,
             color: 'kali-blue',
-            action: () => window.open('mailto:samuelndubuisi32@gmail.com')
+            action: () => window.open(`mailto:${profile.email}`)
         },
         {
             icon: 'fab fa-github',
             label: 'GitHub',
-            value: 'github.com/Sammieblz',
+            value: profile.links.github.replace('https://', ''),
             color: 'kali-yellow',
-            action: () => window.open('https://github.com/Sammieblz', '_blank')
+            action: () => window.open(profile.links.github, '_blank')
         },
         {
             icon: 'fab fa-linkedin',
             label: 'LinkedIn',
-            value: 'linkedin.com/in/samuel-n-a4792a220',
+            value: profile.links.linkedin.replace('https://www.', ''),
             color: 'kali-blue',
-            action: () => window.open('https://www.linkedin.com/in/samuel-n-a4792a220/', '_blank')
+            action: () => window.open(profile.links.linkedin, '_blank')
         },
         {
             icon: 'fab fa-instagram',
             label: 'Instagram',
-            value: 'instagram.com/Sammieblz',
+            value: profile.links.instagram.replace('https://www.', ''),
             color: 'kali-purple',
-            action: () => window.open('https://www.instagram.com/Sammieblz/', '_blank')
+            action: () => window.open(profile.links.instagram, '_blank')
         },
         {
             icon: 'fab fa-discord',
             label: 'Discord',
             value: 'Discord Server',
             color: 'kali-indigo',
-            action: () => window.open('https://discord.com/channels/999904657151381514/1208547758336901170', '_blank')
+            action: () => window.open(profile.links.discord, '_blank')
         },
         {
             icon: 'fas fa-map-marker-alt',
             label: 'Location',
-            value: 'Akron, Ohio',
+            value: profile.location,
             color: 'kali-green',
             action: null
         }
@@ -152,11 +154,11 @@
                             </div>
                             <div class="flex items-center gap-2">
                                 <i class="fas fa-map-marker-alt kali-red"></i>
-                                <span class="text-gray-300">Based in Akron, Ohio</span>
+                                <span class="text-gray-300">Based in {profile.location}</span>
                             </div>
                             <div class="flex items-center gap-2">
                                 <i class="fas fa-code kali-blue"></i>
-                                <span class="text-gray-300">Full Stack Developer</span>
+                                <span class="text-gray-300">{profile.role}</span>
                             </div>
                             <div class="flex items-center gap-2">
                                 <i class="fas fa-graduation-cap kali-yellow"></i>
