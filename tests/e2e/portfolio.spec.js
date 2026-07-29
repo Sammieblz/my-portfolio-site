@@ -2,6 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
 const browserErrors = new WeakMap();
+const portfolioHeadingName = 'Samuel Ndubuisi | Full Stack Developer';
 const applicationNames = [
 	['File Manager', 'Files'],
 	['GitHub Projects', 'Projects'],
@@ -67,7 +68,9 @@ test.afterEach(async ({ page }) => {
 
 test('loads a recruiter-first home and opens the terminal', async ({ page }, testInfo) => {
 	await page.goto('/');
-	await expect(page.getByRole('heading', { name: 'Samuel Ndubuisi', exact: true })).toBeAttached();
+	await expect(
+		page.getByRole('heading', { name: portfolioHeadingName, exact: true })
+	).toBeAttached();
 	await expect(page.getByText('Greater Cleveland, Ohio').first()).toBeVisible();
 	await expect(page.getByText('Available for opportunities').first()).toBeVisible();
 	if (!isMobile(testInfo)) {
@@ -198,7 +201,9 @@ test('returns validated API and accessible error responses', async ({ page }) =>
 
 test('has no significant automatically detectable accessibility violations', async ({ page }) => {
 	await page.goto('/');
-	await expect(page.getByRole('heading', { name: 'Samuel Ndubuisi', exact: true })).toBeAttached();
+	await expect(
+		page.getByRole('heading', { name: portfolioHeadingName, exact: true })
+	).toBeAttached();
 	await expectNoSignificantAccessibilityViolations(page);
 });
 
@@ -403,7 +408,7 @@ test('can navigate cached portfolio pages offline', async ({ page, context }, te
 		await context.setOffline(true);
 		await page.goto('/about');
 		await expect(
-			page.getByRole('heading', { name: 'Samuel Ndubuisi | Full Stack Developer', exact: true })
+			page.getByRole('heading', { name: portfolioHeadingName, exact: true })
 		).toBeAttached();
 		await expect(page.getByText('Experience').first()).toBeVisible();
 	} finally {
