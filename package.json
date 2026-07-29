@@ -1,33 +1,67 @@
 {
 	"name": "my-portfolio-site",
-	"version": "0.0.1",
+	"version": "1.0.0",
 	"private": true,
+	"description": "Samuel Ndubuisi's accessible, OS-inspired developer portfolio.",
+	"engines": {
+		"node": "24.x",
+		"npm": ">=11"
+	},
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
+		"assets:generate": "node scripts/generate-static-images.mjs",
 		"preview": "vite preview",
-		"lint": "prettier --check . && eslint .",
-		"format": "prettier --write ."
+		"check": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json --watch",
+		"lint": "npm run lint:format && npm run lint:eslint",
+		"lint:format": "prettier --check .",
+		"lint:eslint": "eslint . --max-warnings=0",
+		"format": "prettier --write .",
+		"test": "npm run test:unit",
+		"test:unit": "vitest run",
+		"test:unit:watch": "vitest",
+		"test:coverage": "vitest run --coverage",
+		"test:e2e": "playwright test",
+		"verify": "npm run check && npm run lint && npm run test:coverage && npm run build && npm run budget",
+		"budget": "node scripts/check-bundle-budget.mjs",
+		"links:check": "node scripts/check-links.mjs",
+		"audit": "npm audit --omit=dev --audit-level=high"
 	},
 	"devDependencies": {
-		"@sveltejs/adapter-auto": "^3.0.0",
-		"@sveltejs/kit": "^2.0.0",
-		"@sveltejs/vite-plugin-svelte": "^3.0.0",
-		"@types/eslint": "^9.6.0",
-		"autoprefixer": "^10.4.20",
-		"eslint": "^9.0.0",
-		"eslint-config-prettier": "^9.1.0",
-		"eslint-plugin-svelte": "^2.36.0",
-		"globals": "^15.0.0",
-		"postcss": "^8.4.47",
-		"prettier": "^3.1.1",
-		"prettier-plugin-svelte": "^3.1.2",
-		"svelte": "^4.2.7",
-		"tailwindcss": "^3.4.13",
-		"vite": "^5.0.3"
+		"@axe-core/playwright": "^4.12.1",
+		"@eslint/js": "^10.0.1",
+		"@playwright/test": "^1.62.0",
+		"@sveltejs/adapter-vercel": "^6.3.4",
+		"@sveltejs/kit": "^2.70.1",
+		"@sveltejs/vite-plugin-svelte": "^6.2.4",
+		"@testing-library/jest-dom": "^6.9.1",
+		"@testing-library/svelte": "^5.2.9",
+		"@vitest/coverage-v8": "^4.1.0",
+		"autoprefixer": "^10.4.23",
+		"eslint": "^10.8.0",
+		"eslint-config-prettier": "^10.1.8",
+		"eslint-plugin-svelte": "^3.22.0",
+		"globals": "^16.4.0",
+		"jsdom": "^27.0.0",
+		"postcss": "^8.5.24",
+		"prettier": "^3.9.0",
+		"prettier-plugin-svelte": "^4.1.1",
+		"svelte": "^5.56.8",
+		"svelte-check": "^4.3.4",
+		"tailwindcss": "^3.4.19",
+		"typescript": "^5.9.3",
+		"vite": "^7.3.6",
+		"vitest": "^4.1.0"
+	},
+	"overrides": {
+		"cookie": "^0.7.2",
+		"sucrase": {
+			"glob": "^11.1.0"
+		}
 	},
 	"type": "module",
 	"dependencies": {
-		"aos": "^2.3.4"
+		"@fortawesome/fontawesome-free": "^7.3.1"
 	}
 }

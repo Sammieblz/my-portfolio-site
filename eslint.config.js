@@ -6,18 +6,30 @@ import globals from 'globals';
 /** @type {import('eslint').Linter.Config[]} */
 export default [
 	js.configs.recommended,
-	...svelte.configs['flat/recommended'],
+	...svelte.configs.recommended,
 	prettier,
-	...svelte.configs['flat/prettier'],
+	...svelte.configs.prettier,
 	{
 		languageOptions: {
 			globals: {
 				...globals.browser,
 				...globals.node
 			}
+		},
+		rules: {
+			'svelte/no-navigation-without-resolve': 'off',
+			'svelte/require-each-key': 'off'
 		}
 	},
 	{
-		ignores: ['build/', '.svelte-kit/', 'dist/']
+		ignores: [
+			'build/',
+			'.svelte-kit/',
+			'.vercel/',
+			'coverage/',
+			'dist/',
+			'playwright-report/',
+			'test-results/'
+		]
 	}
 ];

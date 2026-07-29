@@ -1,1 +1,5 @@
-<!-- Desktop environment is handled by the layout -->
+<script>
+	import PortfolioPage from '../components/PortfolioPage.svelte';
+</script>
+
+<PortfolioPage />

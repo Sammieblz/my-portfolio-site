@@ -1,283 +1,301 @@
 <script>
-    import { profile } from '$lib/profile';
+	import { notify } from '$lib/notifications';
+	import { profile } from '$lib/profile';
 
-    export let window;
-    export let closeWindow;
-    export let minimizeWindow;
-    export let maximizeWindow;
+	const EMPTY_FORM = { name: '', email: '', subject: '', message: '', company: '' };
 
-    let formData = {
-        name: '',
-        email: '',
-        subject: '',
-        message: ''
-    };
-    let isSubmitting = false;
-    let submitStatus = null;
+	let formData = { ...EMPTY_FORM };
+	let isSubmitting = false;
+	let submitStatus = null;
+	let copyStatus = '';
 
-    async function handleSubmit() {
-        if (!formData.name || !formData.email || !formData.message) {
-            submitStatus = { type: 'error', message: 'Please fill in all required fields.' };
-            return;
-        }
+	const contactInfo = [
+		{
+			icon: 'fas fa-envelope',
+			label: 'Email',
+			value: profile.email,
+			href: `mailto:${profile.email}`,
+			copyValue: profile.email,
+			color: 'kali-blue'
+		},
+		{
+			icon: 'fab fa-github',
+			label: 'GitHub',
+			value: `@${profile.githubUsername}`,
+			href: profile.links.github,
+			copyValue: profile.links.github,
+			color: 'kali-yellow'
+		},
+		{
+			icon: 'fab fa-linkedin',
+			label: 'LinkedIn',
+			value: 'Samuel Ndubuisi',
+			href: profile.links.linkedin,
+			copyValue: profile.links.linkedin,
+			color: 'kali-blue'
+		},
+		{
+			icon: 'fas fa-map-marker-alt',
+			label: 'Location',
+			value: profile.location,
+			href: null,
+			copyValue: null,
+			color: 'kali-green'
+		}
+	];
 
-        isSubmitting = true;
-        submitStatus = null;
+	async function handleSubmit() {
+		if (isSubmitting) return;
 
-        try {
-            const response = await fetch(profile.contact.formspreeEndpoint, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    name: formData.name,
-                    email: formData.email,
-                    subject: formData.subject || 'Portfolio Contact',
-                    message: formData.message
-                })
-            });
+		const payload = {
+			name: formData.name.trim().slice(0, 100),
+			email: formData.email.trim().slice(0, 254),
+			subject: formData.subject.trim().slice(0, 160) || 'Portfolio contact',
+			message: formData.message.trim().slice(0, 5000),
+			_gotcha: formData.company
+		};
 
-            if (response.ok) {
-                submitStatus = { type: 'success', message: 'Message sent successfully! I\'ll get back to you soon.' };
-                formData = { name: '', email: '', subject: '', message: '' };
-            } else {
-                throw new Error('Failed to send message');
-            }
-        } catch (error) {
-            submitStatus = { type: 'error', message: 'Failed to send message. Please try again or contact me directly.' };
-        } finally {
-            isSubmitting = false;
-        }
-    }
+		if (!payload.name || !payload.email || !payload.message) {
+			submitStatus = { type: 'error', message: 'Please complete every required field.' };
+			return;
+		}
+		isSubmitting = true;
+		submitStatus = null;
 
-    function copyToClipboard(text) {
-        navigator.clipboard.writeText(text);
-        // You could add a toast notification here
-    }
+		try {
+			const response = await fetch('/api/contact', {
+				method: 'POST',
+				headers: {
+					accept: 'application/json',
+					'content-type': 'application/json'
+				},
+				body: JSON.stringify(payload),
+				signal: AbortSignal.timeout(12_000)
+			});
 
-    const contactInfo = [
-        {
-            icon: 'fas fa-envelope',
-            label: 'Email',
-            value: profile.email,
-            color: 'kali-blue',
-            action: () => window.open(`mailto:${profile.email}`)
-        },
-        {
-            icon: 'fab fa-github',
-            label: 'GitHub',
-            value: profile.links.github.replace('https://', ''),
-            color: 'kali-yellow',
-            action: () => window.open(profile.links.github, '_blank')
-        },
-        {
-            icon: 'fab fa-linkedin',
-            label: 'LinkedIn',
-            value: profile.links.linkedin.replace('https://www.', ''),
-            color: 'kali-blue',
-            action: () => window.open(profile.links.linkedin, '_blank')
-        },
-        {
-            icon: 'fab fa-instagram',
-            label: 'Instagram',
-            value: profile.links.instagram.replace('https://www.', ''),
-            color: 'kali-purple',
-            action: () => window.open(profile.links.instagram, '_blank')
-        },
-        {
-            icon: 'fab fa-discord',
-            label: 'Discord',
-            value: 'Discord Server',
-            color: 'kali-indigo',
-            action: () => window.open(profile.links.discord, '_blank')
-        },
-        {
-            icon: 'fas fa-map-marker-alt',
-            label: 'Location',
-            value: profile.location,
-            color: 'kali-green',
-            action: null
-        }
-    ];
+			if (!response.ok) throw new Error(`Contact endpoint returned ${response.status}`);
+			submitStatus = {
+				type: 'success',
+				message: "Message sent. Thanks. I'll get back to you soon."
+			};
+			notify({
+				title: 'Message sent',
+				message: 'Your contact message was delivered successfully.',
+				type: 'success',
+				source: 'Contact',
+				dedupeKey: 'contact-result'
+			});
+			formData = { ...EMPTY_FORM };
+		} catch {
+			submitStatus = {
+				type: 'error',
+				message: `The message could not be sent. Your text is still here; retry or email ${profile.email}.`
+			};
+			notify({
+				title: 'Message not sent',
+				message: 'Your text was preserved. Retry or use the email link.',
+				type: 'error',
+				source: 'Contact',
+				dedupeKey: 'contact-result'
+			});
+		} finally {
+			isSubmitting = false;
+		}
+	}
+
+	async function copyToClipboard(label, value) {
+		try {
+			await navigator.clipboard.writeText(value);
+			copyStatus = `${label} copied.`;
+			notify({
+				title: `${label} copied`,
+				message: 'The contact detail is ready to paste.',
+				type: 'success',
+				source: 'Clipboard',
+				duration: 3_000,
+				dedupeKey: 'contact-copy'
+			});
+		} catch {
+			copyStatus = `Could not copy ${label.toLowerCase()}.`;
+			notify({
+				title: 'Copy failed',
+				message: `The ${label.toLowerCase()} could not be copied.`,
+				type: 'error',
+				source: 'Clipboard',
+				duration: 4_000,
+				dedupeKey: 'contact-copy'
+			});
+		}
+	}
 </script>
 
-<div class="w-full h-full file-manager overflow-hidden flex flex-col">
+<section
+	class="file-manager flex h-full w-full flex-col overflow-hidden"
+	aria-label="Contact Samuel"
+>
+	<div class="flex-1 overflow-y-auto p-4 sm:p-6">
+		<div class="mx-auto max-w-5xl">
+			<header class="mb-7 text-center">
+				<h2 class="mb-2 text-3xl font-bold text-white">Get in touch</h2>
+				<p class="text-gray-300">New opportunities and thoughtful collaborations are welcome.</p>
+			</header>
 
-    <!-- Content -->
-    <div class="flex-1 overflow-y-auto p-4">
-        <div class="max-w-4xl mx-auto">
-            <!-- Header Section -->
-            <div class="text-center mb-8">
-                <h1 class="text-3xl font-bold text-white mb-2">Get In Touch</h1>
-                <p class="text-gray-300">I'm always interested in new opportunities and collaborations</p>
-            </div>
+			<div class="grid gap-6 lg:grid-cols-2">
+				<div class="space-y-6">
+					<section class="rounded-lg bg-gray-800 p-5" aria-labelledby="contact-information">
+						<h3 id="contact-information" class="mb-4 text-xl font-semibold text-white">
+							Contact information
+						</h3>
+						<ul class="space-y-3">
+							{#each contactInfo as contact}
+								<li class="flex items-center gap-3 rounded p-3 hover:bg-gray-700">
+									<span
+										class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-700"
+										aria-hidden="true"
+									>
+										<i class={`${contact.icon} ${contact.color}`}></i>
+									</span>
+									<div class="min-w-0 flex-1">
+										<p class="text-sm text-gray-300">{contact.label}</p>
+										{#if contact.href}
+											<a
+												class="break-words font-medium text-white hover:text-blue-300"
+												href={contact.href}
+												target={contact.href.startsWith('http') ? '_blank' : undefined}
+												rel={contact.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+											>
+												{contact.value}
+											</a>
+										{:else}
+											<p class="font-medium text-white">{contact.value}</p>
+										{/if}
+									</div>
+									{#if contact.copyValue}
+										<button
+											type="button"
+											class="rounded p-2 text-gray-300 hover:bg-gray-600 hover:text-white"
+											on:click={() => copyToClipboard(contact.label, contact.copyValue)}
+											aria-label={`Copy ${contact.label}`}
+										>
+											<i class="fas fa-copy" aria-hidden="true"></i>
+										</button>
+									{/if}
+								</li>
+							{/each}
+						</ul>
+						<p class="sr-only" aria-live="polite">{copyStatus}</p>
+					</section>
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <!-- Contact Information -->
-                <div class="space-y-6">
-                    <div class="bg-gray-800 rounded-lg p-6">
-                        <h2 class="text-xl font-semibold text-white mb-4">Contact Information</h2>
-                        <div class="space-y-4">
-                            {#each contactInfo as contact}
-                                <div class="flex items-center gap-3 p-3 rounded hover:bg-gray-700 cursor-pointer"
-                                     on:click={contact.action}
-                                     class:cursor-pointer={contact.action}
-                                     class:cursor-default={!contact.action}
-                                >
-                                    <div class="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center">
-                                        <i class="{contact.icon} {contact.color}"></i>
-                                    </div>
-                                    <div class="flex-1">
-                                        <div class="text-sm text-gray-400">{contact.label}</div>
-                                        <div class="text-white font-medium">{contact.value}</div>
-                                    </div>
-                                    {#if contact.action}
-                                        <button
-                                            class="text-gray-400 hover:text-white"
-                                            on:click|stopPropagation={() => copyToClipboard(contact.value)}
-                                        >
-                                            <i class="fas fa-copy"></i>
-                                        </button>
-                                    {/if}
-                                </div>
-                            {/each}
-                        </div>
-                    </div>
+					<section class="rounded-lg bg-gray-800 p-5" aria-labelledby="availability">
+						<h3 id="availability" class="mb-3 text-lg font-semibold text-white">Availability</h3>
+						<p class="flex items-center gap-2 text-gray-300">
+							<i class="fas fa-circle text-xs text-green-400" aria-hidden="true"></i>
+							{profile.contact.availability}
+						</p>
+						<p class="mt-2 text-sm text-gray-400">{profile.contact.availabilityDetails}</p>
+					</section>
+				</div>
 
-                    <div class="bg-gray-800 rounded-lg p-6">
-                        <h3 class="text-lg font-semibold text-white mb-4">Quick Facts</h3>
-                        <div class="space-y-3">
-                            <div class="flex items-center gap-2">
-                                <i class="fas fa-clock kali-green"></i>
-                                <span class="text-gray-300">Available for new opportunities</span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <i class="fas fa-map-marker-alt kali-red"></i>
-                                <span class="text-gray-300">Based in {profile.location}</span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <i class="fas fa-code kali-blue"></i>
-                                <span class="text-gray-300">{profile.role}</span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <i class="fas fa-graduation-cap kali-yellow"></i>
-                                <span class="text-gray-300">University of Akron Graduate</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+				<section class="rounded-lg bg-gray-800 p-5" aria-labelledby="send-message">
+					<h3 id="send-message" class="mb-4 text-xl font-semibold text-white">Send a message</h3>
 
-                <!-- Contact Form -->
-                <div class="bg-gray-800 rounded-lg p-6">
-                    <h2 class="text-xl font-semibold text-white mb-4">Send Message</h2>
-                    
-                    {#if submitStatus}
-                        <div class="mb-4 p-3 rounded {submitStatus.type === 'success' ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}">
-                            {submitStatus.message}
-                        </div>
-                    {/if}
+					{#if submitStatus}
+						<div
+							class={`mb-4 rounded p-3 ${
+								submitStatus.type === 'success'
+									? 'bg-green-950 text-green-200'
+									: 'bg-red-950 text-red-200'
+							}`}
+							role={submitStatus.type === 'success' ? 'status' : 'alert'}
+						>
+							{submitStatus.message}
+						</div>
+					{/if}
 
-                    <form on:submit|preventDefault={handleSubmit} class="space-y-4">
-                        <div>
-                            <label for="name" class="block text-sm font-medium text-gray-300 mb-1">
-                                Name <span class="text-red-400">*</span>
-                            </label>
-                            <input
-                                type="text"
-                                id="name"
-                                bind:value={formData.name}
-                                class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="Your name"
-                                required
-                            />
-                        </div>
+					<form
+						action="/api/contact"
+						method="post"
+						on:submit|preventDefault={handleSubmit}
+						class="space-y-4"
+					>
+						<div class="hidden" aria-hidden="true">
+							<label for="company">Company website</label>
+							<input
+								id="company"
+								name="company"
+								bind:value={formData.company}
+								tabindex="-1"
+								autocomplete="off"
+							/>
+						</div>
 
-                        <div>
-                            <label for="email" class="block text-sm font-medium text-gray-300 mb-1">
-                                Email <span class="text-red-400">*</span>
-                            </label>
-                            <input
-                                type="email"
-                                id="email"
-                                bind:value={formData.email}
-                                class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="your.email@example.com"
-                                required
-                            />
-                        </div>
+						<label class="block">
+							<span class="mb-1 block text-sm font-medium text-gray-300">Name *</span>
+							<input
+								type="text"
+								name="name"
+								bind:value={formData.name}
+								maxlength="100"
+								autocomplete="name"
+								class="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+								required
+							/>
+						</label>
 
-                        <div>
-                            <label for="subject" class="block text-sm font-medium text-gray-300 mb-1">
-                                Subject
-                            </label>
-                            <input
-                                type="text"
-                                id="subject"
-                                bind:value={formData.subject}
-                                class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="What's this about?"
-                            />
-                        </div>
+						<label class="block">
+							<span class="mb-1 block text-sm font-medium text-gray-300">Email *</span>
+							<input
+								type="email"
+								name="email"
+								bind:value={formData.email}
+								maxlength="254"
+								autocomplete="email"
+								class="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+								required
+							/>
+						</label>
 
-                        <div>
-                            <label for="message" class="block text-sm font-medium text-gray-300 mb-1">
-                                Message <span class="text-red-400">*</span>
-                            </label>
-                            <textarea
-                                id="message"
-                                bind:value={formData.message}
-                                rows="5"
-                                class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                                placeholder="Tell me about your project or opportunity..."
-                                required
-                            ></textarea>
-                        </div>
+						<label class="block">
+							<span class="mb-1 block text-sm font-medium text-gray-300">Subject</span>
+							<input
+								type="text"
+								name="subject"
+								bind:value={formData.subject}
+								maxlength="160"
+								class="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+							/>
+						</label>
 
-                        <button
-                            type="submit"
-                            disabled={isSubmitting}
-                            class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
-                        >
-                            {#if isSubmitting}
-                                <i class="fas fa-spinner fa-spin"></i>
-                                Sending...
-                            {:else}
-                                <i class="fas fa-paper-plane"></i>
-                                Send Message
-                            {/if}
-                        </button>
-                    </form>
-                </div>
-            </div>
+						<label class="block">
+							<span class="mb-1 block text-sm font-medium text-gray-300">Message *</span>
+							<textarea
+								name="message"
+								bind:value={formData.message}
+								rows="6"
+								maxlength="5000"
+								class="w-full resize-y rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+								required></textarea>
+						</label>
 
-            <!-- Additional Info -->
-            <div class="mt-8 bg-gray-800 rounded-lg p-6">
-                <h3 class="text-lg font-semibold text-white mb-4">What to Expect</h3>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="text-center">
-                        <div class="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-2">
-                            <i class="fas fa-reply text-white"></i>
-                        </div>
-                        <h4 class="font-semibold text-white mb-1">Quick Response</h4>
-                        <p class="text-sm text-gray-300">I typically respond within 24 hours</p>
-                    </div>
-                    <div class="text-center">
-                        <div class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-2">
-                            <i class="fas fa-handshake text-white"></i>
-                        </div>
-                        <h4 class="font-semibold text-white mb-1">Professional</h4>
-                        <p class="text-sm text-gray-300">Let's discuss your project requirements</p>
-                    </div>
-                    <div class="text-center">
-                        <div class="w-12 h-12 bg-yellow-600 rounded-full flex items-center justify-center mx-auto mb-2">
-                            <i class="fas fa-lightbulb text-white"></i>
-                        </div>
-                        <h4 class="font-semibold text-white mb-1">Innovative</h4>
-                        <p class="text-sm text-gray-300">Bringing fresh ideas to your projects</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+						<p class="text-xs text-gray-400">
+							Your entries pass through this site to Formspree and are used only to respond to your
+							message.
+						</p>
+
+						<button
+							type="submit"
+							disabled={isSubmitting}
+							class="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:cursor-wait disabled:bg-gray-600"
+						>
+							<i
+								class={`fas ${isSubmitting ? 'fa-spinner fa-spin' : 'fa-paper-plane'}`}
+								aria-hidden="true"
+							></i>
+							{isSubmitting ? 'Sending…' : 'Send message'}
+						</button>
+					</form>
+				</section>
+			</div>
+		</div>
+	</div>
+</section>

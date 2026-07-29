@@ -1,135 +1,225 @@
-import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
+import { json } from '@sveltejs/kit';
+import { profile } from '$lib/profile';
+import { checkRateLimit } from '$lib/rateLimit';
+import { mapOpenWeatherCondition, mapWeatherCode, parseCoordinate } from '$lib/weather';
 
-export async function GET({ url }) {
-    try {
-        const lat = url.searchParams.get('lat');
-        const lon = url.searchParams.get('lon');
-        const city = url.searchParams.get('city');
-        
-        // Default to Cleveland if no parameters provided
-        const fallbackLat = lat || '41.4993';
-        const fallbackLon = lon || '-81.6944';
-        const fallbackCity = city || 'Cleveland, OH';
+const CACHE_TTL_MS = 10 * 60_000;
+const MAX_CACHE_ENTRIES = 100;
+const REQUEST_TIMEOUT_MS = 5_000;
+const cache = new Map();
 
-        // Try OpenWeatherMap first if API key is available
-        const apiKey = env.OPENWEATHER_API_KEY;
-        if (apiKey && apiKey !== 'your_openweathermap_api_key_here' && apiKey !== '') {
-            try {
-                let weatherUrl;
-                if (city) {
-                    weatherUrl = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${apiKey}&units=imperial`;
-                } else {
-                    weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=imperial`;
-                }
-                
-                const response = await fetch(weatherUrl, {
-                    timeout: 5000
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    return json({
-                        temp: Math.round(data.main.temp),
-                        condition: mapOpenWeatherCondition(data.weather[0].main),
-                        location: data.name,
-                        source: 'OpenWeatherMap'
-                    });
-                }
-            } catch (error) {
-                console.log('OpenWeatherMap failed, trying fallback:', error.message);
-            }
-        }
-
-        // Fallback to Open-Meteo (no API key required)
-        try {
-            const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${fallbackLat}&longitude=${fallbackLon}&current_weather=true&temperature_unit=fahrenheit`, {
-                timeout: 5000
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                if (data.current_weather) {
-                    return json({
-                        temp: Math.round(data.current_weather.temperature),
-                        condition: mapWeatherCode(data.current_weather.weathercode),
-                        location: fallbackCity,
-                        source: 'Open-Meteo'
-                    });
-                }
-            }
-        } catch (error) {
-            console.log('Open-Meteo failed, using simulation:', error.message);
-        }
-
-        // Final fallback - return default data
-        return json({
-            temp: 72,
-            condition: 'sunny',
-            location: fallbackCity,
-            source: 'simulation'
-        });
-
-    } catch (error) {
-        console.error('Weather API error:', error);
-        // Return default data instead of error to prevent 500
-        return json({
-            temp: 72,
-            condition: 'sunny',
-            location: 'Current Location',
-            source: 'simulation'
-        });
-    }
+export function _clearWeatherCache() {
+	cache.clear();
 }
 
-function mapOpenWeatherCondition(condition) {
-    const conditionMap = {
-        'Clear': 'sunny',
-        'Sunny': 'sunny',
-        'Clouds': 'cloudy',
-        'Overcast': 'cloudy',
-        'Rain': 'rainy',
-        'Drizzle': 'rainy',
-        'Thunderstorm': 'rainy',
-        'Snow': 'rainy',
-        'Mist': 'cloudy',
-        'Fog': 'cloudy',
-        'Haze': 'cloudy',
-        'Dust': 'cloudy',
-        'Sand': 'cloudy',
-        'Ash': 'cloudy',
-        'Squall': 'rainy',
-        'Tornado': 'rainy'
-    };
-    return conditionMap[condition] || 'sunny';
+export function _getWeatherCacheSize() {
+	return cache.size;
 }
 
-function mapWeatherCode(code) {
-    const weatherMap = {
-        0: 'sunny',
-        1: 'partly-cloudy',
-        2: 'partly-cloudy', 
-        3: 'cloudy',
-        45: 'cloudy',
-        48: 'cloudy',
-        51: 'rainy',
-        53: 'rainy',
-        55: 'rainy',
-        61: 'rainy',
-        63: 'rainy',
-        65: 'rainy',
-        71: 'rainy',
-        73: 'rainy',
-        75: 'rainy',
-        77: 'rainy',
-        80: 'rainy',
-        81: 'rainy',
-        82: 'rainy',
-        85: 'rainy',
-        86: 'rainy',
-        95: 'rainy',
-        96: 'rainy',
-        99: 'rainy'
-    };
-    return weatherMap[code] || 'sunny';
+function saveToCache(cacheKey, payload) {
+	cache.delete(cacheKey);
+	cache.set(cacheKey, { payload, storedAt: Date.now() });
+	if (cache.size > MAX_CACHE_ENTRIES) {
+		cache.delete(cache.keys().next().value);
+	}
+}
+
+function roundCoordinate(value) {
+	return Math.round(value * 100) / 100;
+}
+
+async function fetchWithTimeout(fetchFunction, url) {
+	return fetchFunction(url, {
+		headers: { accept: 'application/json' },
+		signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+	});
+}
+
+function weatherResponse(payload, cacheStatus, personal = false) {
+	return json(
+		{ ...payload, cache: cacheStatus },
+		{
+			headers: {
+				'Cache-Control': personal
+					? 'private, no-store'
+					: 'public, max-age=300, s-maxage=600, stale-while-revalidate=1800',
+				'X-Content-Type-Options': 'nosniff'
+			}
+		}
+	);
+}
+
+function errorResponse(code, message, status, headers = {}) {
+	return json(
+		{ error: { code, message } },
+		{
+			status,
+			headers: {
+				'Cache-Control': 'no-store',
+				'X-Content-Type-Options': 'nosniff',
+				...headers
+			}
+		}
+	);
+}
+
+async function getWeather(
+	{ latitude, longitude, isProfileLocation, personal, fetchFunction },
+	options = {}
+) {
+	const lat = isProfileLocation ? latitude : roundCoordinate(latitude);
+	const lon = isProfileLocation ? longitude : roundCoordinate(longitude);
+	const location = isProfileLocation ? profile.location : 'Current location';
+	const cacheKey = `${lat.toFixed(2)}:${lon.toFixed(2)}`;
+	const cached = cache.get(cacheKey);
+	if (cached && Date.now() - cached.storedAt < CACHE_TTL_MS) {
+		return weatherResponse(cached.payload, 'hit', personal);
+	}
+
+	const apiKey =
+		options.apiKey === undefined ? env.OPENWEATHER_API_KEY?.trim() : options.apiKey.trim();
+	if (apiKey) {
+		try {
+			const openWeatherUrl = new URL('https://api.openweathermap.org/data/2.5/weather');
+			openWeatherUrl.search = new URLSearchParams({
+				lat: String(lat),
+				lon: String(lon),
+				appid: apiKey,
+				units: 'imperial'
+			}).toString();
+			const upstream = await fetchWithTimeout(fetchFunction, openWeatherUrl);
+			if (upstream.ok) {
+				const data = await upstream.json();
+				const temperature = Number(data.main?.temp);
+				if (!Number.isFinite(temperature)) {
+					throw new Error('OpenWeatherMap returned an invalid temperature');
+				}
+				const payload = {
+					temp: Math.round(temperature),
+					condition: mapOpenWeatherCondition(data.weather?.[0]?.main),
+					location: isProfileLocation ? profile.location : data.name || location,
+					source: 'OpenWeatherMap',
+					stale: false
+				};
+				saveToCache(cacheKey, payload);
+				return weatherResponse(payload, 'miss', personal);
+			}
+		} catch {
+			// Continue to the keyless provider.
+		}
+	}
+
+	try {
+		const openMeteoUrl = new URL('https://api.open-meteo.com/v1/forecast');
+		openMeteoUrl.search = new URLSearchParams({
+			latitude: String(lat),
+			longitude: String(lon),
+			current: 'temperature_2m,weather_code',
+			temperature_unit: 'fahrenheit',
+			timezone: 'auto'
+		}).toString();
+		const upstream = await fetchWithTimeout(fetchFunction, openMeteoUrl);
+		if (upstream.ok) {
+			const data = await upstream.json();
+			const temperature = Number(data.current?.temperature_2m);
+			const weatherCode = Number(data.current?.weather_code);
+			if (!Number.isFinite(temperature) || !Number.isFinite(weatherCode)) {
+				throw new Error('Open-Meteo returned invalid current conditions');
+			}
+			const payload = {
+				temp: Math.round(temperature),
+				condition: mapWeatherCode(weatherCode),
+				location,
+				source: 'Open-Meteo',
+				stale: false
+			};
+			saveToCache(cacheKey, payload);
+			return weatherResponse(payload, 'miss', personal);
+		}
+	} catch {
+		// A stale response or service error is returned below.
+	}
+
+	if (cached) {
+		return weatherResponse({ ...cached.payload, stale: true }, 'stale', personal);
+	}
+
+	return errorResponse('WEATHER_UNAVAILABLE', 'Current weather is temporarily unavailable.', 503, {
+		'Retry-After': '60'
+	});
+}
+
+export async function GET({ url, fetch = globalThis.fetch }, options = {}) {
+	if (url.searchParams.has('lat') || url.searchParams.has('lon')) {
+		return errorResponse(
+			'LOCATION_REQUIRES_POST',
+			'Location coordinates must be sent in a private request body.',
+			400
+		);
+	}
+
+	return getWeather(
+		{
+			latitude: profile.coordinates.latitude,
+			longitude: profile.coordinates.longitude,
+			isProfileLocation: true,
+			personal: false,
+			fetchFunction: fetch
+		},
+		options
+	);
+}
+
+export async function POST({ request, getClientAddress, fetch = globalThis.fetch }, options = {}) {
+	if (typeof getClientAddress === 'function') {
+		const rate = checkRateLimit(`weather:${getClientAddress()}`, {
+			limit: 30,
+			windowMs: 60_000
+		});
+		if (!rate.allowed) {
+			return errorResponse(
+				'RATE_LIMITED',
+				'Too many weather requests were made. Please wait before trying again.',
+				429,
+				{ 'Retry-After': String(rate.retryAfter) }
+			);
+		}
+	}
+
+	let body;
+	try {
+		body = await request.json();
+	} catch {
+		return errorResponse('INVALID_REQUEST', 'A JSON request body is required.', 400);
+	}
+
+	const latitude = parseCoordinate(
+		body?.latitude === undefined ? null : String(body.latitude),
+		-90,
+		90
+	);
+	const longitude = parseCoordinate(
+		body?.longitude === undefined ? null : String(body.longitude),
+		-180,
+		180
+	);
+	if (latitude === null || longitude === null) {
+		return errorResponse(
+			'INVALID_COORDINATES',
+			'Valid latitude and longitude values are required.',
+			400
+		);
+	}
+
+	return getWeather(
+		{
+			latitude,
+			longitude,
+			isProfileLocation: false,
+			personal: true,
+			fetchFunction: fetch
+		},
+		options
+	);
 }

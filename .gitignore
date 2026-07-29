@@ -5,6 +5,9 @@ node_modules
 .vercel
 /.svelte-kit
 /build
+/coverage
+/playwright-report
+/test-results
 
 # OS
 .DS_Store
@@ -14,7 +17,11 @@ Thumbs.db
 .env
 .env.*
 !.env.example
-!.env.test
+
+# Logs and caches
+*.log
+.eslintcache
+npm-debug.log*
 
 # Vite
 vite.config.js.timestamp-*

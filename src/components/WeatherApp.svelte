@@ -1,200 +1,178 @@
 <script>
-    import { onMount } from 'svelte';
-    import { systemStatus } from '../lib/systemStatus.js';
-    
-    // These props are passed by the Window component wrapper
-    export let window = {};
-    export let closeWindow = () => {};
-    export let minimizeWindow = () => {};
-    export let maximizeWindow = () => {};
-    
-    let status = $systemStatus;
-    let currentTime = new Date();
-    let timeInterval;
-    
-    onMount(() => {
-        // Update time every second
-        timeInterval = setInterval(() => {
-            currentTime = new Date();
-        }, 1000);
-        
-        return () => {
-            if (timeInterval) clearInterval(timeInterval);
-        };
-    });
-    
-    function getWeatherIcon(condition) {
-        const icons = {
-            'sunny': 'fas fa-sun',
-            'clear': 'fas fa-sun',
-            'partly-cloudy': 'fas fa-cloud-sun',
-            'cloudy': 'fas fa-cloud',
-            'overcast': 'fas fa-cloud',
-            'rainy': 'fas fa-cloud-rain',
-            'rain': 'fas fa-cloud-rain',
-            'drizzle': 'fas fa-cloud-drizzle',
-            'thunderstorm': 'fas fa-bolt',
-            'storm': 'fas fa-bolt',
-            'snow': 'fas fa-snowflake',
-            'snowy': 'fas fa-snowflake',
-            'mist': 'fas fa-smog',
-            'fog': 'fas fa-smog',
-            'foggy': 'fas fa-smog',
-            'haze': 'fas fa-smog',
-            'dust': 'fas fa-smog',
-            'sand': 'fas fa-smog',
-            'ash': 'fas fa-smog',
-            'squall': 'fas fa-wind',
-            'tornado': 'fas fa-tornado',
-            'windy': 'fas fa-wind',
-            'hot': 'fas fa-thermometer-full',
-            'cold': 'fas fa-thermometer-empty',
-            'humid': 'fas fa-tint',
-            'dry': 'fas fa-sun'
-        };
-        return icons[condition] || 'fas fa-sun';
-    }
-    
-    function getWeatherDescription(condition) {
-        const descriptions = {
-            'sunny': 'Sunny',
-            'clear': 'Clear',
-            'partly-cloudy': 'Partly Cloudy',
-            'cloudy': 'Cloudy',
-            'overcast': 'Overcast',
-            'rainy': 'Rainy',
-            'rain': 'Rain',
-            'drizzle': 'Drizzle',
-            'thunderstorm': 'Thunderstorm',
-            'storm': 'Storm',
-            'snow': 'Snow',
-            'snowy': 'Snowy',
-            'mist': 'Misty',
-            'fog': 'Foggy',
-            'foggy': 'Foggy',
-            'haze': 'Hazy',
-            'dust': 'Dusty',
-            'sand': 'Sandy',
-            'ash': 'Ashy',
-            'squall': 'Squally',
-            'tornado': 'Tornado',
-            'windy': 'Windy',
-            'hot': 'Hot',
-            'cold': 'Cold',
-            'humid': 'Humid',
-            'dry': 'Dry'
-        };
-        return descriptions[condition] || 'Unknown';
-    }
-    
-    function getGreeting() {
-        const hour = currentTime.getHours();
-        if (hour < 12) return 'Good Morning';
-        if (hour < 17) return 'Good Afternoon';
-        return 'Good Evening';
-    }
+	import { onDestroy } from 'svelte';
+	import { notify } from '$lib/notifications';
+	import { getWeatherIcon, systemStatus } from '$lib/systemStatus';
+
+	let status = $systemStatus;
+	let locating = false;
+	let locationMessage = '';
+	let requestController;
+
+	const descriptions = {
+		sunny: 'Sunny',
+		clear: 'Clear',
+		'partly-cloudy': 'Partly cloudy',
+		cloudy: 'Cloudy',
+		overcast: 'Overcast',
+		rainy: 'Rain',
+		rain: 'Rain',
+		drizzle: 'Drizzle',
+		thunderstorm: 'Thunderstorm',
+		storm: 'Storm',
+		snow: 'Snow',
+		mist: 'Mist',
+		fog: 'Fog',
+		haze: 'Haze',
+		windy: 'Windy',
+		unavailable: 'Unavailable'
+	};
+
+	function getPosition() {
+		return new Promise((resolve, reject) => {
+			if (!navigator.geolocation) {
+				reject(new Error('Geolocation is not supported'));
+				return;
+			}
+			navigator.geolocation.getCurrentPosition(resolve, reject, {
+				enableHighAccuracy: false,
+				timeout: 8_000,
+				maximumAge: 10 * 60_000
+			});
+		});
+	}
+
+	async function useMyLocation() {
+		if (locating) return;
+		locating = true;
+		locationMessage = '';
+		requestController?.abort();
+		requestController = new AbortController();
+
+		try {
+			const position = await getPosition();
+			const response = await fetch('/api/weather', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					latitude: position.coords.latitude,
+					longitude: position.coords.longitude
+				}),
+				signal: requestController.signal
+			});
+			if (!response.ok) throw new Error('Weather request failed');
+			const weather = await response.json();
+			systemStatus.update((current) => ({
+				...current,
+				weather: {
+					temp: weather.temp,
+					condition: weather.condition,
+					location: weather.location,
+					source: weather.source,
+					stale: Boolean(weather.stale)
+				}
+			}));
+			locationMessage = 'Weather updated for your current location.';
+			notify({
+				title: 'Local weather updated',
+				message: `${weather.temp}°F at your current location.`,
+				type: 'success',
+				source: 'Weather',
+				dedupeKey: 'location-weather'
+			});
+		} catch (error) {
+			if (error instanceof DOMException && error.name === 'AbortError') return;
+			locationMessage =
+				'Location weather was not available. Your browser may have denied the request.';
+			notify({
+				title: 'Location weather unavailable',
+				message: 'Location permission may have been denied or weather data is unavailable.',
+				type: 'warning',
+				source: 'Weather',
+				dedupeKey: 'location-weather'
+			});
+		} finally {
+			locating = false;
+		}
+	}
+
+	onDestroy(() => requestController?.abort());
 </script>
 
-<div class="w-full h-full bg-gray-900 text-white flex flex-col">
-    <!-- Weather Header -->
-    <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-center">
-        <div class="text-6xl mb-4">
-            <i class="{getWeatherIcon(status.weather.condition)} text-yellow-300"></i>
-        </div>
-        <h1 class="text-4xl font-bold mb-2">{status.weather.temp}°F</h1>
-        <p class="text-xl text-gray-200">{getWeatherDescription(status.weather.condition)}</p>
-        <p class="text-sm text-gray-300 mt-2">
-            <i class="fas fa-map-marker-alt mr-1"></i>
-            {status.weather.location}
-        </p>
-    </div>
-    
-    <!-- Weather Details -->
-    <div class="flex-1 p-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Current Time -->
-            <div class="bg-gray-800 rounded-lg p-4">
-                <h3 class="text-lg font-semibold mb-3 flex items-center">
-                    <i class="fas fa-clock mr-2 text-blue-400"></i>
-                    Current Time
-                </h3>
-                <div class="text-3xl font-mono font-bold text-green-400">
-                    {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                </div>
-                <div class="text-sm text-gray-400 mt-2">
-                    {currentTime.toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                </div>
-            </div>
-            
-            <!-- Weather Info -->
-            <div class="bg-gray-800 rounded-lg p-4">
-                <h3 class="text-lg font-semibold mb-3 flex items-center">
-                    <i class="fas fa-cloud mr-2 text-blue-400"></i>
-                    Weather Details
-                </h3>
-                <div class="space-y-2">
-                    <div class="flex justify-between">
-                        <span class="text-gray-400">Temperature:</span>
-                        <span class="font-semibold">{status.weather.temp}°F</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-400">Condition:</span>
-                        <span class="font-semibold">{getWeatherDescription(status.weather.condition)}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-400">Location:</span>
-                        <span class="font-semibold">{status.weather.location}</span>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- System Status -->
-            <div class="bg-gray-800 rounded-lg p-4">
-                <h3 class="text-lg font-semibold mb-3 flex items-center">
-                    <i class="fas fa-battery-half mr-2 text-green-400"></i>
-                    System Status
-                </h3>
-                <div class="space-y-2">
-                    <div class="flex justify-between">
-                        <span class="text-gray-400">Battery:</span>
-                        <span class="font-semibold">{status.battery}%</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-400">WiFi:</span>
-                        <span class="font-semibold">{status.wifi}%</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-400">Status:</span>
-                        <span class="font-semibold text-green-400">Online</span>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Greeting -->
-            <div class="bg-gray-800 rounded-lg p-4">
-                <h3 class="text-lg font-semibold mb-3 flex items-center">
-                    <i class="fas fa-user mr-2 text-purple-400"></i>
-                    Greeting
-                </h3>
-                <div class="text-xl font-semibold text-purple-400">
-                    {getGreeting()}, Samuel!
-                </div>
-                <div class="text-sm text-gray-400 mt-2">
-                    Welcome to your portfolio OS
-                </div>
-            </div>
-        </div>
-        
-        <!-- Weather Forecast Placeholder -->
-        <div class="mt-6 bg-gray-800 rounded-lg p-4">
-            <h3 class="text-lg font-semibold mb-3 flex items-center">
-                <i class="fas fa-chart-line mr-2 text-yellow-400"></i>
-                Weather Forecast
-            </h3>
-            <div class="text-center text-gray-400 py-4">
-                <i class="fas fa-cloud-sun text-4xl mb-2"></i>
-                <p>Extended forecast coming soon...</p>
-            </div>
-        </div>
-    </div>
-</div>
+<section
+	class="flex h-full w-full flex-col overflow-y-auto bg-gray-900 text-white"
+	aria-label="Weather"
+>
+	<header class="bg-gradient-to-r from-blue-700 to-purple-700 p-6 text-center">
+		<i
+			class={`${getWeatherIcon(status.weather.condition)} mb-4 text-6xl text-yellow-200`}
+			aria-hidden="true"
+		></i>
+		<h2 class="text-4xl font-bold">
+			{status.weather.temp === null ? 'Weather unavailable' : `${status.weather.temp}°F`}
+		</h2>
+		<p class="mt-2 text-xl text-gray-100">
+			{descriptions[status.weather.condition] ?? 'Current conditions'}
+		</p>
+		<p class="mt-2 text-sm text-gray-200">
+			<i class="fas fa-map-marker-alt mr-1" aria-hidden="true"></i>{status.weather.location}
+		</p>
+	</header>
+
+	<div class="mx-auto grid w-full max-w-4xl flex-1 gap-5 p-5 md:grid-cols-2">
+		<section class="rounded-lg bg-gray-800 p-5" aria-labelledby="weather-details">
+			<h3 id="weather-details" class="mb-4 text-lg font-semibold">Weather details</h3>
+			<dl class="space-y-3">
+				<div class="flex justify-between gap-3">
+					<dt class="text-gray-400">Temperature</dt>
+					<dd>{status.weather.temp === null ? 'Unavailable' : `${status.weather.temp}°F`}</dd>
+				</div>
+				<div class="flex justify-between gap-3">
+					<dt class="text-gray-400">Condition</dt>
+					<dd>{descriptions[status.weather.condition] ?? status.weather.condition}</dd>
+				</div>
+				<div class="flex justify-between gap-3">
+					<dt class="text-gray-400">Location</dt>
+					<dd class="text-right">{status.weather.location}</dd>
+				</div>
+				<div class="flex justify-between gap-3">
+					<dt class="text-gray-400">Data source</dt>
+					<dd>{status.weather.source}</dd>
+				</div>
+			</dl>
+			{#if status.weather.stale}
+				<p class="mt-4 rounded bg-amber-950 p-3 text-sm text-amber-200" role="status">
+					Live weather is temporarily unavailable; this reading may be stale.
+				</p>
+			{/if}
+		</section>
+
+		<section class="rounded-lg bg-gray-800 p-5" aria-labelledby="local-weather">
+			<h3 id="local-weather" class="mb-3 text-lg font-semibold">Local weather</h3>
+			<p class="text-sm leading-relaxed text-gray-300">
+				Weather defaults to Samuel's location. Your browser will request location permission only if
+				you choose the button below.
+			</p>
+			<button
+				type="button"
+				class="mt-5 flex items-center gap-2 rounded bg-blue-700 px-4 py-2 hover:bg-blue-600 disabled:opacity-60"
+				on:click={useMyLocation}
+				disabled={locating}
+			>
+				<i
+					class={`fas ${locating ? 'fa-spinner fa-spin' : 'fa-location-crosshairs'}`}
+					aria-hidden="true"
+				></i>
+				{locating ? 'Locating…' : 'Use my location'}
+			</button>
+			<p class="mt-3 text-sm text-gray-300" role="status">{locationMessage}</p>
+		</section>
+
+		<section class="rounded-lg bg-gray-800 p-5 md:col-span-2" aria-labelledby="connection-status">
+			<h3 id="connection-status" class="mb-3 text-lg font-semibold">Connection status</h3>
+			<p class={status.online ? 'text-green-300' : 'text-red-300'}>
+				<i class={`fas ${status.online ? 'fa-wifi' : 'fa-wifi-slash'} mr-2`} aria-hidden="true"></i>
+				{status.connectionLabel}
+			</p>
+		</section>
+	</div>
+</section>

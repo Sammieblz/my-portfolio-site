@@ -1,103 +1,76 @@
 <script>
-    import { onMount } from 'svelte';
-    
-    export let position;
-    export let onAction;
-    export let onClose;
+	import { onMount } from 'svelte';
+	import { getApplicationsFor } from '$lib/appRegistry';
 
-    let contextMenuRef;
+	export let position;
+	export let onAction;
+	export let onClose;
 
-    const menuItems = [
-        {
-            id: 'terminal',
-            label: 'Open Terminal',
-            icon: 'fas fa-terminal',
-            color: 'kali-green'
-        },
-        {
-            id: 'file-manager',
-            label: 'Open File Manager',
-            icon: 'fas fa-folder',
-            color: 'kali-blue'
-        },
-        {
-            id: 'projects',
-            label: 'View Projects',
-            icon: 'fab fa-github',
-            color: 'kali-yellow'
-        },
-        {
-            id: 'about',
-            label: 'About Samuel',
-            icon: 'fas fa-user',
-            color: 'kali-red'
-        },
-        {
-            id: 'contact',
-            label: 'Contact Me',
-            icon: 'fas fa-envelope',
-            color: 'kali-blue'
-        },
-        {
-            id: 'weather',
-            label: 'Weather',
-            icon: 'fas fa-cloud-sun',
-            color: 'kali-yellow'
-        },
-        {
-            id: 'clock',
-            label: 'Clock',
-            icon: 'fas fa-clock',
-            color: 'kali-green'
-        },
-        {
-            id: 'memory',
-            label: 'Memory Game',
-            icon: 'fas fa-brain',
-            color: 'kali-purple'
-        }
-    ];
+	let contextMenuRef;
+	const menuItems = getApplicationsFor('startMenu');
 
-    function handleItemClick(item) {
-        onAction(item.id);
-    }
+	function handleKeydown(event) {
+		if (event.key === 'Escape') {
+			onClose();
+			return;
+		}
 
-    function handleClickOutside(event) {
-        if (contextMenuRef && !contextMenuRef.contains(event.target)) {
-            onClose();
-        }
-    }
+		const buttons = [...contextMenuRef.querySelectorAll('[role="menuitem"]')];
+		const currentIndex = buttons.indexOf(document.activeElement);
+		const nextIndex = {
+			ArrowDown: (currentIndex + 1) % buttons.length,
+			ArrowUp: (currentIndex - 1 + buttons.length) % buttons.length,
+			Home: 0,
+			End: buttons.length - 1
+		}[event.key];
+		if (nextIndex !== undefined) {
+			event.preventDefault();
+			buttons[nextIndex]?.focus();
+		}
+	}
 
-    onMount(() => {
-        document.addEventListener('click', handleClickOutside);
-        return () => {
-            document.removeEventListener('click', handleClickOutside);
-        };
-    });
+	onMount(() => {
+		contextMenuRef?.querySelector('button')?.focus();
+		const handleOutside = (event) => {
+			if (contextMenuRef && !contextMenuRef.contains(event.target)) onClose();
+		};
+		document.addEventListener('pointerdown', handleOutside);
+		return () => document.removeEventListener('pointerdown', handleOutside);
+	});
 </script>
 
 <div
-    bind:this={contextMenuRef}
-    class="context-menu fixed z-50 py-2 rounded-lg min-w-48"
-    style="left: {position.x}px; top: {position.y}px;"
+	bind:this={contextMenuRef}
+	class="context-menu fixed z-[6000] min-w-56 rounded-lg py-2"
+	style:left={`${Math.max(0, position.x)}px`}
+	style:top={`${Math.max(0, position.y)}px`}
+	role="menu"
+	aria-label="Desktop menu"
+	tabindex="-1"
+	on:keydown={handleKeydown}
 >
-    {#each menuItems as item}
-        <button
-            class="context-menu-item w-full px-4 py-2 text-left flex items-center gap-3 text-sm text-gray-300 hover:text-white"
-            on:click={() => handleItemClick(item)}
-        >
-            <i class="{item.icon} {item.color} w-4"></i>
-            {item.label}
-        </button>
-    {/each}
-    
-    <div class="border-t border-gray-600 my-1"></div>
-    
-    <button
-        class="context-menu-item w-full px-4 py-2 text-left flex items-center gap-3 text-sm text-gray-300 hover:text-white"
-        on:click={onClose}
-    >
-        <i class="fas fa-times text-gray-400 w-4"></i>
-        Close
-    </button>
+	{#each menuItems as application}
+		<button
+			type="button"
+			role="menuitem"
+			class="context-menu-item flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-gray-300 hover:text-white"
+			on:click={() => {
+				onAction(application.id);
+				onClose();
+			}}
+		>
+			<i class={`${application.icon} ${application.color} w-4`} aria-hidden="true"></i>
+			{application.name}
+		</button>
+	{/each}
+	<div class="my-1 border-t border-gray-600"></div>
+	<button
+		type="button"
+		role="menuitem"
+		class="context-menu-item flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-gray-300 hover:text-white"
+		on:click={onClose}
+	>
+		<i class="fas fa-times w-4 text-gray-400" aria-hidden="true"></i>
+		Close menu
+	</button>
 </div>
