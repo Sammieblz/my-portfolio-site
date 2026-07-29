@@ -1,193 +1,228 @@
 <script>
-    import { onMount } from 'svelte';
-    
-    export let window;
-    export let closeWindow;
-    export let minimizeWindow;
-    export let maximizeWindow;
+	import { onMount, tick } from 'svelte';
+	import { constrainWindowBounds } from '$lib/windowManager';
 
-    let windowElement;
-    let isDragging = false;
-    let isResizing = false;
-    let dragStart = { x: 0, y: 0 };
-    let resizeStart = { x: 0, y: 0, width: 0, height: 0 };
-    let currentPosition = { x: window.x, y: window.y };
-    let currentSize = { width: window.width, height: window.height };
+	export let windowState;
+	export let onFocus;
+	export let onUpdate;
+	export let onMinimize;
+	export let onMaximize;
+	export let onClose;
 
-    function handleMouseDown(event) {
-        if (event.target.closest('.window-controls')) return;
-        
-        isDragging = true;
-        dragStart = {
-            x: event.clientX - currentPosition.x,
-            y: event.clientY - currentPosition.y
-        };
-        
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
-        event.preventDefault();
-    }
+	let interaction = null;
+	let windowElement;
 
-    function handleMouseMove(event) {
-        if (isDragging) {
-            currentPosition = {
-                x: event.clientX - dragStart.x,
-                y: event.clientY - dragStart.y
-            };
-            
-            // Keep window within bounds - responsive taskbar height
-            const taskbarHeight = window.innerWidth < 768 ? 48 : 56;
-            currentPosition.x = Math.max(0, Math.min(document.documentElement.clientWidth - currentSize.width, currentPosition.x));
-            currentPosition.y = Math.max(0, Math.min(document.documentElement.clientHeight - currentSize.height - taskbarHeight, currentPosition.y));
-        }
-        
-        if (isResizing) {
-            const minWidth = window.innerWidth < 768 ? 250 : 300;
-            const minHeight = window.innerWidth < 768 ? 200 : 200;
-            const maxWidth = window.innerWidth < 768 ? window.innerWidth * 0.9 : window.innerWidth;
-            const maxHeight = window.innerWidth < 768 ? window.innerHeight * 0.7 : window.innerHeight;
-            
-            const newWidth = Math.max(minWidth, Math.min(maxWidth, resizeStart.width + (event.clientX - resizeStart.x)));
-            const newHeight = Math.max(minHeight, Math.min(maxHeight, resizeStart.height + (event.clientY - resizeStart.y)));
-            
-            currentSize = { width: newWidth, height: newHeight };
-        }
-    }
+	function viewport() {
+		return {
+			width: document.documentElement.clientWidth,
+			height: document.documentElement.clientHeight
+		};
+	}
 
-    function handleMouseUp() {
-        isDragging = false;
-        isResizing = false;
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-    }
+	function beginInteraction(event, type) {
+		if (event.button !== 0 || windowState.maximized) return;
+		if (type === 'move' && event.target.closest('button, a, input, select, textarea')) return;
 
-    function handleResizeMouseDown(event) {
-        isResizing = true;
-        resizeStart = {
-            x: event.clientX,
-            y: event.clientY,
-            width: currentSize.width,
-            height: currentSize.height
-        };
-        
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
-        event.preventDefault();
-    }
+		interaction = {
+			type,
+			pointerId: event.pointerId,
+			startX: event.clientX,
+			startY: event.clientY,
+			startBounds: { ...windowState.bounds }
+		};
+		event.currentTarget.setPointerCapture(event.pointerId);
+		onFocus();
+		event.preventDefault();
+	}
 
-    function handleMaximize() {
-        if (window.maximized) {
-            // Restore
-            currentPosition = { x: window.x, y: window.y };
-            currentSize = { width: window.width, height: window.height };
-        } else {
-            // Maximize - responsive taskbar height and mobile-friendly sizing
-            const taskbarHeight = window.innerWidth < 768 ? 48 : 56;
-            const isMobile = window.innerWidth < 768;
-            
-            if (isMobile) {
-                // On mobile, maximize to 90% of screen for better UX
-                currentPosition = { 
-                    x: window.innerWidth * 0.05, 
-                    y: 20 
-                };
-                currentSize = { 
-                    width: window.innerWidth * 0.9, 
-                    height: window.innerHeight - taskbarHeight - 40 
-                };
-            } else {
-                // On desktop, full maximize
-                currentPosition = { x: 0, y: 0 };
-                currentSize = { 
-                    width: document.documentElement.clientWidth, 
-                    height: document.documentElement.clientHeight - taskbarHeight 
-                };
-            }
-        }
-        maximizeWindow(window.id);
-    }
+	function updateInteraction(event) {
+		if (!interaction || event.pointerId !== interaction.pointerId) return;
 
-    onMount(() => {
-        return () => {
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
-        };
-    });
+		const deltaX = event.clientX - interaction.startX;
+		const deltaY = event.clientY - interaction.startY;
+		const proposed =
+			interaction.type === 'move'
+				? {
+						...interaction.startBounds,
+						x: interaction.startBounds.x + deltaX,
+						y: interaction.startBounds.y + deltaY
+					}
+				: {
+						...interaction.startBounds,
+						width: interaction.startBounds.width + deltaX,
+						height: interaction.startBounds.height + deltaY
+					};
+
+		onUpdate({
+			bounds: constrainWindowBounds(proposed, viewport(), windowState.minSize)
+		});
+	}
+
+	function endInteraction(event) {
+		if (!interaction || event.pointerId !== interaction.pointerId) return;
+		if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+			event.currentTarget.releasePointerCapture(event.pointerId);
+		}
+		interaction = null;
+	}
+
+	function handleTitleKeydown(event) {
+		if (windowState.maximized) return;
+
+		const distance = event.shiftKey ? 24 : 8;
+		const movement = {
+			ArrowLeft: { x: -distance, y: 0 },
+			ArrowRight: { x: distance, y: 0 },
+			ArrowUp: { x: 0, y: -distance },
+			ArrowDown: { x: 0, y: distance }
+		}[event.key];
+
+		if (!movement) return;
+		event.preventDefault();
+		onUpdate({
+			bounds: constrainWindowBounds(
+				{
+					...windowState.bounds,
+					x: windowState.bounds.x + movement.x,
+					y: windowState.bounds.y + movement.y
+				},
+				viewport(),
+				windowState.minSize
+			)
+		});
+	}
+
+	function handleResizeKeydown(event) {
+		if (windowState.maximized) return;
+
+		const distance = event.shiftKey ? 24 : 8;
+		const change = {
+			ArrowLeft: { width: -distance, height: 0 },
+			ArrowRight: { width: distance, height: 0 },
+			ArrowUp: { width: 0, height: -distance },
+			ArrowDown: { width: 0, height: distance }
+		}[event.key];
+
+		if (!change) return;
+		event.preventDefault();
+		onUpdate({
+			bounds: constrainWindowBounds(
+				{
+					...windowState.bounds,
+					width: windowState.bounds.width + change.width,
+					height: windowState.bounds.height + change.height
+				},
+				viewport(),
+				windowState.minSize
+			)
+		});
+	}
+
+	onMount(async () => {
+		await tick();
+		if (!windowElement?.contains(document.activeElement)) windowElement?.focus();
+	});
 </script>
 
-    <div
-        bind:this={windowElement}
-        class="absolute app-window window-enter"
-        class:window-exit={window.minimized}
-        role="application"
-        style="
-            left: {window.maximized ? 0 : currentPosition.x}px;
-            top: {window.maximized ? 0 : currentPosition.y}px;
-            width: {window.maximized ? '100vw' : currentSize.width}px;
-            height: {window.maximized ? 'calc(100vh - 48px)' : currentSize.height}px;
-            z-index: {window.zIndex || 100};
-        "
-        on:mousedown={handleMouseDown}
-    >
-    <!-- Window Header -->
-    <div class="window-header flex items-center justify-between px-2 sm:px-4 py-1 sm:py-2 cursor-move">
-        <div class="flex items-center gap-1 sm:gap-2">
-            <div class="flex gap-1">
-                <div class="w-2 h-2 sm:w-3 sm:h-3 bg-red-500 rounded-full"></div>
-                <div class="w-2 h-2 sm:w-3 sm:h-3 bg-yellow-500 rounded-full"></div>
-                <div class="w-2 h-2 sm:w-3 sm:h-3 bg-green-500 rounded-full"></div>
-            </div>
-            <span class="text-xs sm:text-sm font-medium mono truncate">{window.title}</span>
-        </div>
-        <div class="flex gap-1 window-controls">
-            <button
-                class="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center hover:bg-gray-600 rounded"
-                on:click={() => minimizeWindow(window.id)}
-            >
-                <i class="fas fa-minus text-xs"></i>
-            </button>
-            <button
-                class="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center hover:bg-gray-600 rounded"
-                on:click={handleMaximize}
-            >
-                <i class="fas {window.maximized ? 'fa-compress' : 'fa-expand'} text-xs"></i>
-            </button>
-            <button
-                class="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center hover:bg-red-600 rounded"
-                on:click={() => closeWindow(window.id)}
-            >
-                <i class="fas fa-times text-xs"></i>
-            </button>
-        </div>
-    </div>
+<div
+	bind:this={windowElement}
+	class="app-window window-enter absolute flex flex-col overflow-hidden"
+	style:left={`${windowState.bounds.x}px`}
+	style:top={`${windowState.bounds.y}px`}
+	style:width={`${windowState.bounds.width}px`}
+	style:height={`${windowState.bounds.height}px`}
+	style:z-index={windowState.zIndex}
+	role="dialog"
+	aria-modal="false"
+	aria-label={windowState.title}
+	aria-hidden={windowState.minimized}
+	inert={windowState.minimized}
+	hidden={windowState.minimized}
+	tabindex="-1"
+	on:pointerdown={onFocus}
+>
+	<header
+		class="window-header flex min-h-10 touch-none items-center justify-between px-3"
+		class:cursor-move={!windowState.maximized}
+		tabindex="0"
+		role="toolbar"
+		aria-label={`${windowState.title} window. Use arrow keys to move.`}
+		on:pointerdown={(event) => beginInteraction(event, 'move')}
+		on:pointermove={updateInteraction}
+		on:pointerup={endInteraction}
+		on:pointercancel={endInteraction}
+		on:keydown={handleTitleKeydown}
+		on:dblclick={onMaximize}
+	>
+		<div class="flex min-w-0 items-center gap-2">
+			<div class="flex gap-1" aria-hidden="true">
+				<span class="h-3 w-3 rounded-full bg-red-500"></span>
+				<span class="h-3 w-3 rounded-full bg-yellow-500"></span>
+				<span class="h-3 w-3 rounded-full bg-green-500"></span>
+			</div>
+			<span class="mono truncate text-sm font-medium">{windowState.title}</span>
+		</div>
 
-    <!-- Window Content -->
-    <div class="flex-1 overflow-hidden">
-        <slot />
-    </div>
+		<div class="window-controls flex gap-1">
+			<button
+				type="button"
+				class="flex h-7 w-7 items-center justify-center rounded hover:bg-gray-600"
+				aria-label={`Minimize ${windowState.title}`}
+				on:click|stopPropagation={onMinimize}
+			>
+				<i class="fas fa-minus text-xs" aria-hidden="true"></i>
+			</button>
+			<button
+				type="button"
+				class="flex h-7 w-7 items-center justify-center rounded hover:bg-gray-600"
+				aria-label={`${windowState.maximized ? 'Restore' : 'Maximize'} ${windowState.title}`}
+				on:click|stopPropagation={onMaximize}
+			>
+				<i
+					class={`fas ${windowState.maximized ? 'fa-compress' : 'fa-expand'} text-xs`}
+					aria-hidden="true"
+				></i>
+			</button>
+			<button
+				type="button"
+				class="flex h-7 w-7 items-center justify-center rounded hover:bg-red-600"
+				aria-label={`Close ${windowState.title}`}
+				on:click|stopPropagation={onClose}
+			>
+				<i class="fas fa-times text-xs" aria-hidden="true"></i>
+			</button>
+		</div>
+	</header>
 
-    <!-- Resize Handle -->
-    {#if !window.maximized}
-        <div
-            class="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize opacity-0 hover:opacity-100 transition-opacity"
-            role="button"
-            tabindex="0"
-            on:mousedown={handleResizeMouseDown}
-        >
-            <div class="absolute bottom-1 right-1 w-2 h-2 border-r-2 border-b-2 border-gray-400"></div>
-        </div>
-    {/if}
+	<div class="min-h-0 flex-1 overflow-hidden">
+		<slot />
+	</div>
+
+	{#if !windowState.maximized}
+		<button
+			type="button"
+			class="absolute bottom-0 right-0 h-6 w-6 touch-none cursor-se-resize bg-transparent"
+			aria-label={`Resize ${windowState.title}. Use arrow keys to resize.`}
+			on:pointerdown={(event) => beginInteraction(event, 'resize')}
+			on:pointermove={updateInteraction}
+			on:pointerup={endInteraction}
+			on:pointercancel={endInteraction}
+			on:keydown={handleResizeKeydown}
+		>
+			<span class="absolute bottom-1 right-1 h-2 w-2 border-b-2 border-r-2 border-gray-400"></span>
+		</button>
+	{/if}
 </div>
 
 <style>
-    .window-header {
-        background: #21262d;
-        border-bottom: 1px solid #30363d;
-    }
-    
-    .app-window {
-        background: #0d1117;
-        border: 1px solid #30363d;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    }
+	.window-header {
+		background: #21262d;
+		border-bottom: 1px solid #30363d;
+	}
+
+	.app-window {
+		background: #0d1117;
+		border: 1px solid #30363d;
+		box-shadow: 0 25px 50px -12px rgb(0 0 0 / 50%);
+	}
 </style>

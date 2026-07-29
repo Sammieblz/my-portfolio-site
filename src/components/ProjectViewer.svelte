@@ -1,397 +1,471 @@
 <script>
-    import { onMount } from 'svelte';
-    import { profile } from '$lib/profile';
+	import { onMount, tick } from 'svelte';
+	import { notify } from '$lib/notifications';
+	import { profile } from '$lib/profile';
+	import { getPortfolioRouteState, updatePortfolioUrl } from '$lib/routeState';
 
-    export let window;
-    export let closeWindow;
-    export let minimizeWindow;
-    export let maximizeWindow;
+	export let windowState = { data: {} };
 
-    let projects = [];
-    let loading = true;
-    let error = null;
-    let selectedProject = null;
+	const caseStudies = profile.caseStudies.map((study) => ({
+		...study,
+		id: `case-study-${study.slug}`,
+		name: study.title,
+		description: study.summary,
+		kind: 'case-study'
+	}));
 
-    const GITHUB_USERNAME = profile.githubUsername;
-    const GITHUB_API_URL = `https://api.github.com/users/${GITHUB_USERNAME}/repos?sort=updated&per_page=40`;
+	let view = 'case-studies';
+	let projects = [];
+	let loading = true;
+	let warning = '';
+	let selectedProject = null;
+	let fetchedAt = null;
+	let requestController;
+	let closeButton;
+	let projectDialog;
+	let previousFocus;
+	let copyStatus = '';
+	let requestedSlug;
 
-    async function fetchProjects() {
-        try {
-            loading = true;
-            const response = await fetch(GITHUB_API_URL);
-            
-            if (!response.ok) {
-                throw new Error(`GitHub API error: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            
-            // Filter and format projects - exclude unwanted projects
-            const excludedProjects = ['weather-app', 'IT-2320-interactive-internet-programming-projects', 'MyWebsite'];
-            const order = profile.featuredRepoOrder;
-            const ranked = (name) => {
-                const i = order.indexOf(name);
-                return i === -1 ? order.length : i;
-            };
-            projects = data
-                .filter(repo => !repo.fork && repo.name !== 'Sammieblz' && !excludedProjects.includes(repo.name))
-                .map(repo => ({
-                    id: repo.id,
-                    name: repo.name,
-                    description: repo.description || 'No description available',
-                    url: repo.html_url,
-                    homepage: repo.homepage,
-                    language: repo.language || 'Unknown',
-                    stars: repo.stargazers_count,
-                    forks: repo.forks_count,
-                    updated: new Date(repo.updated_at).toLocaleDateString(),
-                    updatedAt: repo.updated_at,
-                    topics: repo.topics || [],
-                    size: repo.size,
-                    cloneUrl: repo.clone_url,
-                    sshUrl: repo.ssh_url
-                }))
-                .sort((a, b) => {
-                    const ra = ranked(a.name);
-                    const rb = ranked(b.name);
-                    if (ra !== rb) return ra - rb;
-                    return new Date(b.updatedAt) - new Date(a.updatedAt);
-                })
-                .map(({ updatedAt, ...rest }) => rest)
-                .slice(0, 6);
-                
-        } catch (err) {
-            console.error('Error fetching projects:', err);
-            error = err.message;
-            
-            const fbRank = (name) => {
-                const i = profile.featuredRepoOrder.indexOf(name);
-                return i === -1 ? profile.featuredRepoOrder.length : i;
-            };
-            // Fallback to hardcoded projects if API fails
-            projects = [
-                {
-                    id: 10,
-                    name: 'AITT',
-                    description:
-                        'AITT: behavioral interview training for CS students — Next.js app, Python services, local model workspace.',
-                    url: 'https://github.com/Sammieblz/AITT',
-                    homepage: null,
-                    language: 'TypeScript',
-                    stars: 0,
-                    forks: 0,
-                    updated: new Date().toLocaleDateString(),
-                    topics: ['nextjs', 'python', 'ai'],
-                    size: 4096,
-                    cloneUrl: 'https://github.com/Sammieblz/AITT.git',
-                    sshUrl: 'git@github.com/Sammieblz/AITT.git'
-                },
-                {
-                    id: 1,
-                    name: 'brack-app',
-                    description:
-                        'Brack — book tracking with progress, streaks, social features, and native apps via Capacitor.',
-                    url: 'https://github.com/Sammieblz/brack-app',
-                    homepage: null,
-                    language: 'TypeScript',
-                    stars: 0,
-                    forks: 0,
-                    updated: '2024-01-15',
-                    topics: ['typescript', 'react', 'book-tracking', 'webapp'],
-                    size: 1024,
-                    cloneUrl: 'https://github.com/Sammieblz/brack-app.git',
-                    sshUrl: 'git@github.com:Sammieblz/brack-app.git'
-                },
-                {
-                    id: 2,
-                    name: 'my-portfolio-site',
-                    description: 'Portfolio site with a Kali Linux–inspired desktop UI.',
-                    url: 'https://github.com/Sammieblz/my-portfolio-site',
-                    homepage: profile.links.portfolio,
-                    language: 'Svelte',
-                    stars: 1,
-                    forks: 0,
-                    updated: '2024-01-10',
-                    topics: ['svelte', 'portfolio', 'kali-linux', 'gui'],
-                    size: 2048,
-                    cloneUrl: 'https://github.com/Sammieblz/my-portfolio-site.git',
-                    sshUrl: 'git@github.com/Sammieblz/my-portfolio-site.git'
-                },
-                {
-                    id: 3,
-                    name: 'the-ignitor-app',
-                    description: 'AI powered app that provides personalized motivational quotes leveraging OpenAI language models and 11Labs speech models.',
-                    url: 'https://github.com/Sammieblz/the-ignitor-app',
-                    homepage: null,
-                    language: 'TypeScript',
-                    stars: 0,
-                    forks: 0,
-                    updated: '2024-01-05',
-                    topics: ['typescript', 'ai', 'openai', '11labs', 'motivation'],
-                    size: 3072,
-                    cloneUrl: 'https://github.com/Sammieblz/the-ignitor-app.git',
-                    sshUrl: 'git@github.com/Sammieblz/the-ignitor-app.git'
-                },
-                {
-                    id: 4,
-                    name: 'V3l0city',
-                    description:
-                        'Digital speedometer (Expo / React Native) with GPS, compass, and Kalman-filtered speed.',
-                    url: 'https://github.com/Sammieblz/V3l0city',
-                    homepage: null,
-                    language: 'TypeScript',
-                    stars: 0,
-                    forks: 0,
-                    updated: '2024-06-21',
-                    topics: ['expo', 'react-native', 'gps', 'typescript'],
-                    size: 2048,
-                    cloneUrl: 'https://github.com/Sammieblz/V3l0city.git',
-                    sshUrl: 'git@github.com/Sammieblz/V3l0city.git'
-                },
-                {
-                    id: 5,
-                    name: 'VisionPlayground',
-                    description: 'Computer vision experiments.',
-                    url: 'https://github.com/Sammieblz/VisionPlayground',
-                    homepage: null,
-                    language: 'Python',
-                    stars: 0,
-                    forks: 0,
-                    updated: '2023-08-19',
-                    topics: ['python', 'computer-vision', 'opencv'],
-                    size: 1024,
-                    cloneUrl: 'https://github.com/Sammieblz/VisionPlayground.git',
-                    sshUrl: 'git@github.com/Sammieblz/VisionPlayground.git'
-                }
-            ].sort((a, b) => fbRank(a.name) - fbRank(b.name));
-        } finally {
-            loading = false;
-        }
-    }
+	async function fetchProjects() {
+		requestController?.abort();
+		requestController = new AbortController();
+		loading = true;
+		warning = '';
 
-    function getLanguageColor(language) {
-        const colors = {
-            'JavaScript': 'kali-yellow',
-            'TypeScript': 'kali-blue',
-            'Python': 'kali-green',
-            'Java': 'kali-red',
-            'C++': 'kali-blue',
-            'HTML': 'kali-red',
-            'CSS': 'kali-blue',
-            'Vue': 'kali-green',
-            'Svelte': 'kali-red',
-            'Unknown': 'text-gray-400'
-        };
-        return colors[language] || 'text-gray-400';
-    }
+		try {
+			const response = await fetch('/api/projects', { signal: requestController.signal });
+			if (!response.ok) throw new Error(`Project request returned ${response.status}`);
+			const result = await response.json();
+			projects = result.projects;
+			fetchedAt = new Date(result.fetchedAt);
+			if (result.stale || result.source === 'fallback') {
+				warning = 'Live GitHub data is unavailable; showing a reliable saved project list.';
+				notify({
+					title: 'Using saved projects',
+					message: 'Live GitHub data is unavailable. A saved project list is displayed.',
+					type: 'warning',
+					source: 'GitHub Projects',
+					dedupeKey: 'projects-status'
+				});
+			}
+		} catch (error) {
+			if (error instanceof DOMException && error.name === 'AbortError') return;
+			warning = 'Projects could not be loaded. Check your connection and retry.';
+			notify({
+				title: 'Projects unavailable',
+				message: 'Project data could not be loaded. Check your connection and retry.',
+				type: 'error',
+				source: 'GitHub Projects',
+				dedupeKey: 'projects-status'
+			});
+		} finally {
+			loading = false;
+		}
+	}
 
-    function formatSize(size) {
-        if (size < 1024) return `${size} KB`;
-        return `${(size / 1024).toFixed(1)} MB`;
-    }
+	async function openProject(project, event, syncRoute = true) {
+		previousFocus = event?.currentTarget ?? null;
+		selectedProject = project;
+		copyStatus = '';
+		if (syncRoute && project.kind === 'case-study') {
+			updatePortfolioUrl('projects', { project: project.slug });
+		}
+		await tick();
+		closeButton?.focus();
+	}
 
-    function openProject(project) {
-        selectedProject = project;
-    }
+	function closeProjectDetails(syncRoute = true) {
+		selectedProject = null;
+		if (syncRoute) updatePortfolioUrl('projects');
+		void tick().then(() => previousFocus?.focus());
+	}
 
-    function closeProjectDetails() {
-        selectedProject = null;
-    }
+	function handleDialogKeydown(event) {
+		if (event.key === 'Escape') {
+			closeProjectDetails();
+			return;
+		}
+		if (event.key !== 'Tab') return;
 
-    function copyToClipboard(text) {
-        navigator.clipboard.writeText(text);
-        // You could add a toast notification here
-    }
+		const focusable = [...projectDialog.querySelectorAll('button, a, input')].filter(
+			(element) => !element.disabled
+		);
+		if (focusable.length === 0) return;
+		const first = focusable[0];
+		const last = focusable.at(-1);
 
-    onMount(() => {
-        fetchProjects();
-    });
+		if (event.shiftKey && document.activeElement === first) {
+			event.preventDefault();
+			last.focus();
+		} else if (!event.shiftKey && document.activeElement === last) {
+			event.preventDefault();
+			first.focus();
+		}
+	}
+
+	async function copyToClipboard(text) {
+		try {
+			await navigator.clipboard.writeText(text);
+			copyStatus = 'Clone URL copied.';
+			notify({
+				title: 'Clone URL copied',
+				message: 'The repository URL is ready to paste.',
+				type: 'success',
+				source: 'Clipboard',
+				duration: 3_000,
+				dedupeKey: 'project-copy'
+			});
+		} catch {
+			copyStatus = 'The clone URL could not be copied.';
+			notify({
+				title: 'Copy failed',
+				message: 'The clone URL could not be copied.',
+				type: 'error',
+				source: 'Clipboard',
+				duration: 4_000,
+				dedupeKey: 'project-copy'
+			});
+		}
+	}
+
+	function formatSize(size) {
+		if (!size) return 'Not reported';
+		if (size < 1024) return `${size} KB`;
+		return `${(size / 1024).toFixed(1)} MB`;
+	}
+
+	function formatDate(date) {
+		return date
+			? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(date))
+			: 'Saved project';
+	}
+
+	function syncProjectFromRoute(projectSlug) {
+		const requestedProject = caseStudies.find((study) => study.slug === projectSlug);
+		requestedSlug = projectSlug;
+		if (requestedProject && selectedProject?.slug !== projectSlug) {
+			void openProject(requestedProject, null, false);
+		} else if (!requestedProject && selectedProject?.kind === 'case-study') {
+			closeProjectDetails(false);
+		}
+	}
+
+	onMount(() => {
+		void fetchProjects();
+		const handleHistory = () => {
+			const route = getPortfolioRouteState(globalThis.location.href);
+			if (route.appId === 'projects') syncProjectFromRoute(route.data.project);
+		};
+		globalThis.addEventListener('popstate', handleHistory);
+		return () => {
+			requestController?.abort();
+			globalThis.removeEventListener('popstate', handleHistory);
+		};
+	});
+
+	$: if (windowState?.data?.project !== requestedSlug) {
+		syncProjectFromRoute(windowState?.data?.project);
+	}
 </script>
 
-<div class="w-full h-full file-manager overflow-hidden flex flex-col">
+<section
+	class="file-manager flex h-full w-full flex-col overflow-hidden"
+	aria-label="Portfolio projects"
+>
+	<header
+		class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-600 px-4 py-2"
+	>
+		<div class="flex flex-wrap items-center gap-2">
+			<div class="flex rounded bg-gray-800 p-0.5" aria-label="Project view">
+				<button
+					type="button"
+					class="rounded px-3 py-1 text-xs"
+					class:bg-blue-700={view === 'case-studies'}
+					class:text-gray-300={view !== 'case-studies'}
+					aria-pressed={view === 'case-studies'}
+					on:click={() => (view = 'case-studies')}
+				>
+					Case studies
+				</button>
+				<button
+					type="button"
+					class="rounded px-3 py-1 text-xs"
+					class:bg-blue-700={view === 'repositories'}
+					class:text-gray-300={view !== 'repositories'}
+					aria-pressed={view === 'repositories'}
+					on:click={() => (view = 'repositories')}
+				>
+					GitHub
+				</button>
+			</div>
+			<button
+				type="button"
+				class="flex items-center gap-2 rounded px-3 py-1 text-xs hover:bg-gray-600 disabled:opacity-50"
+				on:click={fetchProjects}
+				disabled={loading}
+				hidden={view !== 'repositories'}
+			>
+				<i class="fas fa-sync-alt" class:animate-spin={loading} aria-hidden="true"></i>
+				Refresh
+			</button>
+			<span class="text-xs text-gray-400">
+				{view === 'case-studies'
+					? `${caseStudies.length} case studies`
+					: `${projects.length} repositories`}
+			</span>
+		</div>
+		{#if fetchedAt}
+			<time class="text-xs text-gray-400" datetime={fetchedAt.toISOString()}>
+				Updated {fetchedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+			</time>
+		{/if}
+	</header>
 
-    <!-- Toolbar -->
-    <div class="px-4 py-2 border-b border-gray-600 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-            <button
-                class="px-3 py-1 text-xs rounded hover:bg-gray-600 flex items-center gap-2"
-                on:click={fetchProjects}
-                disabled={loading}
-            >
-                <i class="fas fa-sync-alt" class:animate-spin={loading}></i>
-                Refresh
-            </button>
-            <div class="text-xs text-gray-400">
-                {projects.length} projects
-            </div>
-        </div>
-        
-        <div class="flex items-center gap-2">
-            <div class="text-xs text-gray-400">
-                Last updated: {new Date().toLocaleTimeString()}
-            </div>
-        </div>
-    </div>
+	{#if warning && view === 'repositories'}
+		<div
+			class="border-b border-amber-800 bg-amber-950 px-4 py-2 text-sm text-amber-200"
+			role="status"
+		>
+			{warning}
+		</div>
+	{/if}
 
-    <!-- Content -->
-    <div class="flex-1 overflow-y-auto p-4">
-        {#if loading}
-            <div class="flex items-center justify-center h-64">
-                <div class="text-center">
-                    <i class="fas fa-spinner fa-spin text-3xl kali-blue mb-4"></i>
-                    <div class="text-gray-400">Loading projects from GitHub...</div>
-                </div>
-            </div>
-        {:else if error}
-            <div class="text-center py-8">
-                <i class="fas fa-exclamation-triangle text-3xl kali-red mb-4"></i>
-                <div class="text-red-400 mb-2">Error loading projects</div>
-                <div class="text-gray-400 text-sm mb-4">{error}</div>
-                <button
-                    class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm"
-                    on:click={fetchProjects}
-                >
-                    Retry
-                </button>
-            </div>
-        {:else}
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {#each projects as project (project.id)}
-                    <div
-                        class="file-item p-4 rounded border border-gray-600 hover:border-gray-500 cursor-pointer"
-                        role="button"
-                        tabindex="0"
-                        on:click={() => openProject(project)}
-                        on:keydown={(e) => e.key === 'Enter' && openProject(project)}
-                    >
-                        <div class="flex items-start justify-between mb-2">
-                            <h3 class="text-lg font-semibold text-white truncate">
-                                {project.name}
-                            </h3>
-                            <div class="flex items-center gap-2 text-xs text-gray-400">
-                                <i class="fas fa-star"></i>
-                                {project.stars}
-                                <i class="fas fa-code-branch"></i>
-                                {project.forks}
-                            </div>
-                        </div>
-                        
-                        <p class="text-sm text-gray-300 mb-3 line-clamp-2">
-                            {project.description}
-                        </p>
-                        
-                        <div class="flex items-center justify-between text-xs">
-                            <div class="flex items-center gap-2">
-                                <span class="px-2 py-1 rounded {getLanguageColor(project.language)} bg-opacity-20">
-                                    {project.language}
-                                </span>
-                                <span class="text-gray-400">
-                                    {formatSize(project.size)}
-                                </span>
-                            </div>
-                            <span class="text-gray-400">
-                                {project.updated}
-                            </span>
-                        </div>
-                        
-                        {#if project.topics.length > 0}
-                            <div class="flex flex-wrap gap-1 mt-2">
-                                {#each project.topics.slice(0, 3) as topic}
-                                    <span class="px-2 py-1 text-xs bg-gray-700 rounded">
-                                        {topic}
-                                    </span>
-                                {/each}
-                                {#if project.topics.length > 3}
-                                    <span class="text-xs text-gray-400">
-                                        +{project.topics.length - 3} more
-                                    </span>
-                                {/if}
-                            </div>
-                        {/if}
-                    </div>
-                {/each}
-            </div>
-        {/if}
-    </div>
-</div>
+	<div class="flex-1 overflow-y-auto p-4">
+		{#if view === 'case-studies'}
+			<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+				{#each caseStudies as study (study.id)}
+					<button
+						type="button"
+						class="file-item rounded-xl border border-gray-600 p-5 text-left hover:border-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400"
+						on:click={(event) => openProject(study, event)}
+						aria-label={`Open ${study.title} case study`}
+					>
+						<span class="flex items-start justify-between gap-3">
+							<span class="text-lg font-semibold text-white">{study.title}</span>
+							<i class="fas fa-arrow-up-right-from-square text-blue-300" aria-hidden="true"></i>
+						</span>
+						<span class="mt-2 block text-sm leading-relaxed text-gray-300">{study.summary}</span>
+						<span class="mt-4 flex flex-wrap gap-1">
+							{#each study.tech.slice(0, 4) as technology}
+								<span class="rounded bg-gray-700 px-2 py-1 text-xs text-gray-200">
+									{technology}
+								</span>
+							{/each}
+						</span>
+					</button>
+				{/each}
+			</div>
+		{:else if loading && projects.length === 0}
+			<div class="flex h-64 items-center justify-center" role="status">
+				<div class="text-center text-gray-300">
+					<i class="fas fa-spinner fa-spin mb-4 text-3xl text-blue-400" aria-hidden="true"></i>
+					<p>Loading projects…</p>
+				</div>
+			</div>
+		{:else if projects.length === 0}
+			<div class="flex h-64 flex-col items-center justify-center text-center">
+				<i class="fas fa-triangle-exclamation mb-4 text-3xl text-red-400" aria-hidden="true"></i>
+				<p class="text-gray-300">No projects are available right now.</p>
+				<button type="button" class="mt-4 rounded bg-gray-700 px-4 py-2" on:click={fetchProjects}>
+					Retry
+				</button>
+			</div>
+		{:else}
+			<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+				{#each projects as project (project.id)}
+					<button
+						type="button"
+						class="file-item rounded border border-gray-600 p-4 text-left hover:border-gray-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400"
+						on:click={(event) => openProject(project, event)}
+					>
+						<span class="mb-2 flex items-start justify-between gap-3">
+							<span class="truncate text-lg font-semibold text-white">{project.name}</span>
+							<span class="flex shrink-0 items-center gap-2 text-xs text-gray-400">
+								<i class="fas fa-star" aria-hidden="true"></i>{project.stars}
+								<i class="fas fa-code-branch" aria-hidden="true"></i>{project.forks}
+							</span>
+						</span>
+						<span class="mb-3 block text-sm text-gray-300">{project.description}</span>
+						<span class="flex items-center justify-between gap-3 text-xs text-gray-400">
+							<span>{project.language}</span>
+							<span>{formatDate(project.updatedAt)}</span>
+						</span>
+						{#if project.topics?.length}
+							<span class="mt-3 flex flex-wrap gap-1">
+								{#each project.topics.slice(0, 4) as topic}
+									<span class="rounded bg-gray-700 px-2 py-1 text-xs text-gray-200">{topic}</span>
+								{/each}
+							</span>
+						{/if}
+					</button>
+				{/each}
+			</div>
+		{/if}
+	</div>
+</section>
 
-<!-- Project Details Modal -->
 {#if selectedProject}
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-gray-800 rounded-lg w-full max-w-2xl mx-4 max-h-[80vh] overflow-hidden">
-            <div class="flex items-center justify-between p-4 border-b border-gray-600">
-                <h2 class="text-xl font-semibold text-white">{selectedProject.name}</h2>
-                <button
-                    class="text-gray-400 hover:text-white"
-                    on:click={closeProjectDetails}
-                >
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            
-            <div class="p-4 overflow-y-auto max-h-[60vh]">
-                <p class="text-gray-300 mb-4">{selectedProject.description}</p>
-                
-                <div class="grid grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <div class="text-sm text-gray-400">Language</div>
-                        <div class="text-white">{selectedProject.language}</div>
-                    </div>
-                    <div>
-                        <div class="text-sm text-gray-400">Size</div>
-                        <div class="text-white">{formatSize(selectedProject.size)}</div>
-                    </div>
-                    <div>
-                        <div class="text-sm text-gray-400">Stars</div>
-                        <div class="text-white">{selectedProject.stars}</div>
-                    </div>
-                    <div>
-                        <div class="text-sm text-gray-400">Forks</div>
-                        <div class="text-white">{selectedProject.forks}</div>
-                    </div>
-                </div>
-                
-                <div class="mb-4">
-                    <div class="text-sm text-gray-400">Clone URL</div>
-                    <div class="flex items-center gap-2 mt-1">
-                        <input
-                            type="text"
-                            value={selectedProject.cloneUrl}
-                            readonly
-                            class="flex-1 bg-gray-700 text-white p-2 rounded text-sm mono"
-                        />
-                        <button
-                            class="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm"
-                            on:click={() => copyToClipboard(selectedProject.cloneUrl)}
-                        >
-                            Copy
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="flex gap-2">
-                    <a
-                        href={selectedProject.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm flex items-center gap-2"
-                    >
-                        <i class="fab fa-github"></i>
-                        View on GitHub
-                    </a>
-                    {#if selectedProject.homepage}
-                        <a
-                            href={selectedProject.homepage}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-sm flex items-center gap-2"
-                        >
-                            <i class="fas fa-external-link-alt"></i>
-                            Live Demo
-                        </a>
-                    {/if}
-                </div>
-            </div>
-        </div>
-    </div>
+	<div
+		class="fixed inset-0 z-[7000] flex items-center justify-center bg-black/70 p-4"
+		role="presentation"
+		on:pointerdown={(event) => event.target === event.currentTarget && closeProjectDetails()}
+	>
+		<div
+			bind:this={projectDialog}
+			class="max-h-[85dvh] w-full max-w-2xl overflow-hidden rounded-lg border border-gray-600 bg-gray-800 shadow-2xl"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="project-dialog-title"
+			tabindex="-1"
+			on:keydown={handleDialogKeydown}
+		>
+			<header class="flex items-center justify-between border-b border-gray-600 p-4">
+				<h2 id="project-dialog-title" class="text-xl font-semibold text-white">
+					{selectedProject.name}
+				</h2>
+				<button
+					bind:this={closeButton}
+					type="button"
+					class="rounded p-2 text-gray-400 hover:bg-gray-700 hover:text-white"
+					on:click={closeProjectDetails}
+					aria-label="Close project details"
+				>
+					<i class="fas fa-times" aria-hidden="true"></i>
+				</button>
+			</header>
+
+			<div class="max-h-[calc(85dvh-4rem)] overflow-y-auto p-4">
+				<p class="mb-5 text-gray-300">{selectedProject.description}</p>
+
+				{#if selectedProject.kind === 'case-study'}
+					<div class="space-y-5">
+						<section>
+							<h3 class="mb-1 font-semibold text-white">Problem</h3>
+							<p class="text-sm leading-relaxed text-gray-300">{selectedProject.problem}</p>
+						</section>
+						<section>
+							<h3 class="mb-1 font-semibold text-white">Samuel's role</h3>
+							<p class="text-sm leading-relaxed text-gray-300">{selectedProject.role}</p>
+						</section>
+						<section>
+							<h3 class="mb-1 font-semibold text-white">Solution</h3>
+							<p class="text-sm leading-relaxed text-gray-300">{selectedProject.solution}</p>
+						</section>
+						<section>
+							<h3 class="mb-2 font-semibold text-white">Outcomes</h3>
+							<ul class="space-y-2 text-sm text-gray-300">
+								{#each selectedProject.outcomes as outcome}
+									<li class="flex items-start gap-2">
+										<i class="fas fa-circle-check mt-1 text-green-400" aria-hidden="true"></i>
+										<span>{outcome}</span>
+									</li>
+								{/each}
+							</ul>
+						</section>
+						<section>
+							<h3 class="mb-2 font-semibold text-white">Technology</h3>
+							<ul class="flex flex-wrap gap-2">
+								{#each selectedProject.tech as technology}
+									<li class="rounded bg-gray-700 px-2 py-1 text-xs text-gray-100">{technology}</li>
+								{/each}
+							</ul>
+						</section>
+					</div>
+				{:else}
+					<dl class="mb-5 grid grid-cols-2 gap-4 text-sm">
+						<div>
+							<dt class="text-gray-400">Language</dt>
+							<dd>{selectedProject.language}</dd>
+						</div>
+						<div>
+							<dt class="text-gray-400">Size</dt>
+							<dd>{formatSize(selectedProject.size)}</dd>
+						</div>
+						<div>
+							<dt class="text-gray-400">Stars</dt>
+							<dd>{selectedProject.stars}</dd>
+						</div>
+						<div>
+							<dt class="text-gray-400">Forks</dt>
+							<dd>{selectedProject.forks}</dd>
+						</div>
+					</dl>
+				{/if}
+
+				{#if selectedProject.kind !== 'case-study' && selectedProject.cloneUrl}
+					<label class="mb-5 block text-sm text-gray-400">
+						Clone URL
+						<span class="mt-1 flex gap-2">
+							<input
+								class="mono min-w-0 flex-1 rounded bg-gray-700 p-2 text-sm text-white"
+								value={selectedProject.cloneUrl}
+								readonly
+							/>
+							<button
+								type="button"
+								class="rounded bg-gray-700 px-3 text-white hover:bg-gray-600"
+								on:click={() => copyToClipboard(selectedProject.cloneUrl)}
+							>
+								Copy
+							</button>
+						</span>
+					</label>
+					<p class="mb-4 text-sm text-gray-300" role="status">{copyStatus}</p>
+				{/if}
+
+				<div class="mt-5 flex flex-wrap gap-2">
+					{#if selectedProject.kind === 'case-study'}
+						{#if selectedProject.links.source}
+							<a
+								href={selectedProject.links.source}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="flex items-center gap-2 rounded bg-blue-600 px-4 py-2 text-sm hover:bg-blue-700"
+							>
+								<i class="fab fa-github" aria-hidden="true"></i>
+								View source
+								<span class="sr-only">(opens in a new tab)</span>
+							</a>
+						{/if}
+						{#if selectedProject.links.live}
+							<a
+								href={selectedProject.links.live}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="flex items-center gap-2 rounded bg-green-700 px-4 py-2 text-sm hover:bg-green-800"
+							>
+								<i class="fas fa-external-link-alt" aria-hidden="true"></i>
+								View project
+								<span class="sr-only">(opens in a new tab)</span>
+							</a>
+						{/if}
+					{:else}
+						<a
+							href={selectedProject.url}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="flex items-center gap-2 rounded bg-blue-600 px-4 py-2 text-sm hover:bg-blue-700"
+						>
+							<i class="fab fa-github" aria-hidden="true"></i>
+							View on GitHub
+							<span class="sr-only">(opens in a new tab)</span>
+						</a>
+						{#if selectedProject.homepage}
+							<a
+								href={selectedProject.homepage}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="flex items-center gap-2 rounded bg-green-700 px-4 py-2 text-sm hover:bg-green-800"
+							>
+								<i class="fas fa-external-link-alt" aria-hidden="true"></i>
+								Live demo
+								<span class="sr-only">(opens in a new tab)</span>
+							</a>
+						{/if}
+					{/if}
+				</div>
+			</div>
+		</div>
+	</div>
 {/if}

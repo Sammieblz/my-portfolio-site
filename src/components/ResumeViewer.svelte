@@ -1,184 +1,168 @@
 <script>
-    import { profile } from '$lib/profile';
+	import { notify } from '$lib/notifications';
+	import { profile } from '$lib/profile';
 
-    export let window;
+	const pdfUrl = profile.assets.resumePdf;
+	let loading = true;
+	let failed = false;
+	let zoom = 100;
 
-    let pdfUrl = profile.assets.resumePdf;
-    let loading = true;
-    let error = null;
-    let zoom = 100;
-    let showDownloadOptions = false;
-    let iframeRef;
+	function downloadResume() {
+		const link = document.createElement('a');
+		link.href = pdfUrl;
+		link.download = profile.assets.resumeDownloadName;
+		document.body.appendChild(link);
+		link.click();
+		link.remove();
+		notify({
+			title: 'Resume download started',
+			message: profile.assets.resumeDownloadName,
+			type: 'success',
+			source: 'Resume',
+			duration: 4_000,
+			dedupeKey: 'resume-download'
+		});
+	}
 
-    function handleLoad() {
-        loading = false;
-        error = null;
-    }
+	function openInNewTab() {
+		globalThis.open(pdfUrl, '_blank', 'noopener,noreferrer');
+		notify({
+			title: 'Resume opened',
+			message: 'The PDF was opened in a new browser tab.',
+			type: 'info',
+			source: 'Resume',
+			duration: 4_000,
+			dedupeKey: 'resume-open'
+		});
+	}
 
-    function handleError() {
-        loading = false;
-        error = 'Failed to load PDF. Please try downloading the file.';
-    }
-
-    function checkIframeLoad() {
-        setTimeout(() => {
-            if (iframeRef && iframeRef.contentDocument && iframeRef.contentDocument.body && iframeRef.contentDocument.body.children.length > 0) {
-                handleLoad();
-            } else {
-                // If PDF doesn't load in iframe, automatically open in new tab
-                console.log("PDF failed to load in iframe, opening in new tab");
-                openInNewTab();
-                handleError();
-            }
-        }, 3000);
-    }
-
-    function downloadResume() {
-        const link = document.createElement('a');
-        link.href = pdfUrl;
-        link.download = profile.assets.resumeDownloadName;
-        link.click();
-    }
-
-    function openInNewTab() {
-        window.open(pdfUrl, '_blank');
-    }
-
-    function adjustZoom(delta) {
-        zoom = Math.max(50, Math.min(200, zoom + delta));
-    }
-
-    function resetZoom() {
-        zoom = 100;
-    }
+	function adjustZoom(delta) {
+		zoom = Math.max(50, Math.min(175, zoom + delta));
+	}
 </script>
 
-<div class="w-full h-full file-manager overflow-hidden flex flex-col">
+<section
+	class="file-manager flex h-full w-full flex-col overflow-hidden"
+	aria-label="Résumé viewer"
+>
+	<header
+		class="flex flex-wrap items-center justify-between gap-2 border-b border-gray-600 px-3 py-2"
+	>
+		<div class="flex flex-wrap gap-2">
+			<button
+				type="button"
+				class="flex items-center gap-2 rounded px-3 py-1 text-xs hover:bg-gray-600"
+				on:click={downloadResume}
+			>
+				<i class="fas fa-download" aria-hidden="true"></i>Download
+			</button>
+			<button
+				type="button"
+				class="flex items-center gap-2 rounded px-3 py-1 text-xs hover:bg-gray-600"
+				on:click={openInNewTab}
+			>
+				<i class="fas fa-external-link-alt" aria-hidden="true"></i>Open in browser
+			</button>
+		</div>
 
-    <!-- Toolbar -->
-    <div class="px-4 py-2 border-b border-gray-600 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-            <button
-                class="px-3 py-1 text-xs rounded hover:bg-gray-600 flex items-center gap-2"
-                on:click={() => showDownloadOptions = !showDownloadOptions}
-            >
-                <i class="fas fa-download"></i>
-                Download
-            </button>
-            <button
-                class="px-3 py-1 text-xs rounded hover:bg-gray-600 flex items-center gap-2"
-                on:click={openInNewTab}
-            >
-                <i class="fas fa-external-link-alt"></i>
-                Open in New Tab
-            </button>
-        </div>
-        
-        <div class="flex items-center gap-2">
-            <button
-                class="px-2 py-1 text-xs rounded hover:bg-gray-600"
-                on:click={() => adjustZoom(-25)}
-            >
-                <i class="fas fa-search-minus"></i>
-            </button>
-            <span class="text-xs text-gray-400 min-w-[3rem] text-center">
-                {zoom}%
-            </span>
-            <button
-                class="px-2 py-1 text-xs rounded hover:bg-gray-600"
-                on:click={() => adjustZoom(25)}
-            >
-                <i class="fas fa-search-plus"></i>
-            </button>
-            <button
-                class="px-2 py-1 text-xs rounded hover:bg-gray-600"
-                on:click={resetZoom}
-            >
-                <i class="fas fa-expand-arrows-alt"></i>
-            </button>
-        </div>
-    </div>
+		<div class="flex items-center gap-1" aria-label="Zoom controls">
+			<button
+				type="button"
+				class="rounded px-2 py-1 hover:bg-gray-600"
+				on:click={() => adjustZoom(-25)}
+				disabled={zoom === 50}
+				aria-label="Zoom out"
+			>
+				<i class="fas fa-search-minus" aria-hidden="true"></i>
+			</button>
+			<output class="min-w-12 text-center text-xs text-gray-300">{zoom}%</output>
+			<button
+				type="button"
+				class="rounded px-2 py-1 hover:bg-gray-600"
+				on:click={() => adjustZoom(25)}
+				disabled={zoom === 175}
+				aria-label="Zoom in"
+			>
+				<i class="fas fa-search-plus" aria-hidden="true"></i>
+			</button>
+			<button
+				type="button"
+				class="rounded px-2 py-1 text-xs hover:bg-gray-600"
+				on:click={() => (zoom = 100)}
+				aria-label="Reset zoom"
+			>
+				100%
+			</button>
+		</div>
+	</header>
 
-    <!-- Download Options Dropdown -->
-    {#if showDownloadOptions}
-        <div class="px-4 py-2 border-b border-gray-600 bg-gray-700">
-            <div class="flex gap-2">
-                <button
-                    class="px-3 py-1 text-xs rounded bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
-                    on:click={downloadResume}
-                >
-                    <i class="fas fa-download"></i>
-                    Download PDF
-                </button>
-                <button
-                    class="px-3 py-1 text-xs rounded bg-green-600 hover:bg-green-700 flex items-center gap-2"
-                    on:click={openInNewTab}
-                >
-                    <i class="fas fa-external-link-alt"></i>
-                    Open in Browser
-                </button>
-            </div>
-        </div>
-    {/if}
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard access for this scroll region) -->
+	<div
+		class="relative min-h-0 flex-1 overflow-auto bg-gray-200 p-3"
+		tabindex="0"
+		aria-label="Résumé document area"
+	>
+		{#if failed}
+			<div class="flex h-full flex-col items-center justify-center px-4 text-center text-gray-800">
+				<i class="fas fa-file-pdf mb-4 text-5xl text-red-600" aria-hidden="true"></i>
+				<h2 class="text-xl font-semibold">Inline PDF viewing is unavailable</h2>
+				<p class="mt-2 max-w-md text-sm">
+					Open the résumé in your browser or download it directly. Your current page will stay open.
+				</p>
+				<div class="mt-5 flex flex-wrap justify-center gap-3">
+					<button
+						type="button"
+						class="rounded bg-blue-700 px-4 py-2 text-white"
+						on:click={openInNewTab}
+					>
+						Open in browser
+					</button>
+					<button
+						type="button"
+						class="rounded bg-gray-700 px-4 py-2 text-white"
+						on:click={downloadResume}
+					>
+						Download PDF
+					</button>
+				</div>
+			</div>
+		{:else}
+			{#if loading}
+				<div
+					class="absolute inset-0 z-10 flex items-center justify-center bg-gray-200"
+					role="status"
+				>
+					<p class="text-gray-700">
+						<i class="fas fa-spinner fa-spin mr-2" aria-hidden="true"></i>Loading résumé…
+					</p>
+				</div>
+			{/if}
+			<div class="mx-auto h-full min-h-[600px]" style:width={`${zoom}%`}>
+				<iframe
+					src={pdfUrl}
+					class="h-full min-h-[600px] w-full rounded border border-gray-400 bg-white shadow-lg"
+					title={`${profile.name} résumé PDF`}
+					on:load={() => (loading = false)}
+					on:error={() => {
+						loading = false;
+						failed = true;
+					}}
+				></iframe>
+			</div>
+		{/if}
+	</div>
 
-    <!-- PDF Content -->
-    <div class="flex-1 overflow-auto bg-gray-100 p-4">
-        {#if loading}
-            <div class="flex items-center justify-center h-64">
-                <div class="text-center">
-                    <i class="fas fa-spinner fa-spin text-3xl kali-blue mb-4"></i>
-                    <div class="text-gray-400">Loading resume...</div>
-                </div>
-            </div>
-        {:else if error}
-            <div class="text-center py-8">
-                <i class="fas fa-exclamation-triangle text-3xl kali-red mb-4"></i>
-                <div class="text-red-400 mb-2">PDF Viewer Not Available</div>
-                <div class="text-gray-400 text-sm mb-4">Your browser doesn't support PDF viewing in this window.</div>
-                <div class="flex flex-col sm:flex-row gap-3 justify-center items-center">
-                    <button
-                        class="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
-                        on:click={openInNewTab}
-                    >
-                        <i class="fas fa-external-link-alt"></i>
-                        Open in Browser
-                    </button>
-                    <button
-                        class="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
-                        on:click={downloadResume}
-                    >
-                        <i class="fas fa-download"></i>
-                        Download PDF
-                    </button>
-                </div>
-            </div>
-        {:else}
-            <div class="flex justify-center">
-                <iframe
-                    bind:this={iframeRef}
-                    src={pdfUrl}
-                    class="border border-gray-300 rounded shadow-lg"
-                    style="width: {zoom}%; height: {zoom * 1.4}px;"
-                    title="{profile.name} Resume PDF"
-                    on:load={checkIframeLoad}
-                    on:error={handleError}
-                ></iframe>
-            </div>
-        {/if}
-    </div>
-
-    <!-- Footer -->
-    <div class="px-4 py-2 border-t border-gray-600 bg-gray-800 text-xs text-gray-400">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-4">
-                <span>{profile.name} - {profile.role}</span>
-                <span>•</span>
-                <span>Last updated: {new Date().toLocaleDateString()}</span>
-            </div>
-            <div class="flex items-center gap-2">
-                <i class="fas fa-file-pdf kali-red"></i>
-                <span>PDF Document</span>
-            </div>
-        </div>
-    </div>
-</div>
+	<footer
+		class="flex flex-wrap items-center justify-between gap-2 border-t border-gray-600 bg-gray-800 px-4 py-2 text-xs text-gray-400"
+	>
+		<span>{profile.name} | {profile.role}</span>
+		<span>
+			Résumé updated
+			<time datetime={profile.assets.resumeUpdated}>
+				{new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
+					new Date(`${profile.assets.resumeUpdated}T12:00:00`)
+				)}
+			</time>
+		</span>
+	</footer>
+</section>

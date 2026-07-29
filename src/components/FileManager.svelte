@@ -1,305 +1,191 @@
 <script>
-    import { onMount } from 'svelte';
-    
-    export let window;
+	import {
+		HOME_DIRECTORY,
+		getNode,
+		listDirectory,
+		normalizePath,
+		resolvePath
+	} from '$lib/filesystem';
 
-    let currentPath = '/home/samuel';
-    let selectedItems = [];
-    let viewMode = 'grid'; // 'grid' or 'list'
-    let showHidden = false;
+	export let onOpenApp = () => {};
 
-    const fileSystem = {
-        '/home/samuel': {
-            type: 'directory',
-            children: {
-                'Desktop': {
-                    type: 'directory',
-                    children: {
-                        'Terminal': { type: 'app', icon: 'fas fa-terminal', color: 'kali-green' },
-                        'File Manager': { type: 'app', icon: 'fas fa-folder', color: 'kali-blue' },
-                        'GitHub Projects': { type: 'app', icon: 'fab fa-github', color: 'kali-yellow' },
-                        'Resume.pdf': { type: 'file', icon: 'fas fa-file-pdf', color: 'kali-red' },
-                        'About Samuel': { type: 'app', icon: 'fas fa-user', color: 'kali-red' },
-                        'Contact': { type: 'app', icon: 'fas fa-envelope', color: 'kali-blue' }
-                    }
-                },
-                'Documents': {
-                    type: 'directory',
-                    children: {
-                        'resume.pdf': { type: 'file', icon: 'fas fa-file-pdf', color: 'kali-red', size: '2.3 MB' },
-                        'projects.md': { type: 'file', icon: 'fas fa-file-alt', color: 'kali-blue', size: '1.2 KB' },
-                        'skills.txt': { type: 'file', icon: 'fas fa-file-text', color: 'kali-green', size: '856 B' }
-                    }
-                },
-                'Projects': {
-                    type: 'directory',
-                    children: {
-                        'cleveland-tennis': { type: 'directory', icon: 'fas fa-folder', color: 'kali-blue' },
-                        'v3locity': { type: 'directory', icon: 'fas fa-folder', color: 'kali-green' },
-                        'client-portal': { type: 'directory', icon: 'fas fa-folder', color: 'kali-yellow' }
-                    }
-                },
-                'Downloads': {
-                    type: 'directory',
-                    children: {}
-                },
-                'Pictures': {
-                    type: 'directory',
-                    children: {
-                        'profile.jpg': { type: 'file', icon: 'fas fa-image', color: 'kali-blue', size: '1.8 MB' },
-                        'screenshots': { type: 'directory', icon: 'fas fa-folder', color: 'kali-blue' }
-                    }
-                }
-            }
-        }
-    };
+	let currentPath = HOME_DIRECTORY;
+	let viewMode = 'grid';
+	let history = [HOME_DIRECTORY];
+	let historyIndex = 0;
 
-    let currentDirectory = fileSystem[currentPath];
+	$: entries = listDirectory(currentPath) ?? [];
+	$: breadcrumbs = currentPath.split('/').filter(Boolean);
 
-    function navigateTo(path) {
-        if (path === '..') {
-            const parts = currentPath.split('/').filter(p => p);
-            if (parts.length > 2) { // More than ['home', 'samuel']
-                parts.pop();
-                currentPath = '/' + parts.join('/');
-            } else {
-                currentPath = '/home/samuel';
-            }
-        } else {
-            if (currentPath === '/home/samuel') {
-                currentPath = `/home/samuel/${path}`;
-            } else {
-                currentPath = `${currentPath}/${path}`;
-            }
-        }
-        
-        currentDirectory = getDirectoryAtPath(currentPath);
-        if (!currentDirectory) {
-            // If directory not found, go back to home
-            currentPath = '/home/samuel';
-            currentDirectory = fileSystem[currentPath];
-        }
-    }
+	function navigateTo(path, addToHistory = true) {
+		const normalized = normalizePath(path);
+		const node = getNode(normalized);
+		if (!node || node.type !== 'directory') return;
 
-    function getDirectoryAtPath(path) {
-        if (path === '/home/samuel') {
-            return fileSystem['/home/samuel'];
-        }
-        
-        const parts = path.split('/').filter(p => p);
-        let current = fileSystem['/home/samuel'];
-        
-        // Skip 'home' and 'samuel' parts since we start from /home/samuel
-        for (let i = 2; i < parts.length; i++) {
-            const part = parts[i];
-            if (current && current.children && current.children[part]) {
-                current = current.children[part];
-            } else {
-                return null;
-            }
-        }
-        
-        return current;
-    }
+		currentPath = normalized;
+		if (addToHistory) {
+			history = [...history.slice(0, historyIndex + 1), normalized];
+			historyIndex = history.length - 1;
+		}
+	}
 
-    function handleItemClick(item, event) {
-        if (event.ctrlKey || event.metaKey) {
-            // Multi-select
-            if (selectedItems.includes(item)) {
-                selectedItems = selectedItems.filter(i => i !== item);
-            } else {
-                selectedItems = [...selectedItems, item];
-            }
-        } else {
-            // Single select
-            selectedItems = [item];
-            
-            if (item.type === 'directory') {
-                navigateTo(item.name);
-            } else if (item.type === 'app') {
-                // Open app
-                const event = new CustomEvent('openApp', { 
-                    detail: { 
-                        type: item.name.toLowerCase().replace(' ', '-').replace('github projects', 'projects'),
-                        title: item.name,
-                        width: 800,
-                        height: 600
-                    } 
-                });
-                window.dispatchEvent(event);
-            } else if (item.name === 'resume.pdf') {
-                const event = new CustomEvent('openApp', { 
-                    detail: { 
-                        type: 'resume',
-                        title: 'Resume.pdf',
-                        width: 800,
-                        height: 600
-                    } 
-                });
-                window.dispatchEvent(event);
-            }
-        }
-    }
+	function goBack() {
+		if (historyIndex <= 0) return;
+		historyIndex -= 1;
+		navigateTo(history[historyIndex], false);
+	}
 
-    function handleItemDoubleClick(item) {
-        if (item.type === 'directory') {
-            navigateTo(item.name);
-        } else if (item.type === 'app' || item.name === 'resume.pdf') {
-            handleItemClick(item, {});
-        }
-    }
+	function goForward() {
+		if (historyIndex >= history.length - 1) return;
+		historyIndex += 1;
+		navigateTo(history[historyIndex], false);
+	}
 
-    function getFileIcon(item) {
-        if (item.icon) return item.icon;
-        
-        if (item.type === 'directory') return 'fas fa-folder';
-        if (item.name.endsWith('.pdf')) return 'fas fa-file-pdf';
-        if (item.name.endsWith('.txt')) return 'fas fa-file-text';
-        if (item.name.endsWith('.md')) return 'fas fa-file-alt';
-        if (item.name.endsWith('.jpg') || item.name.endsWith('.png')) return 'fas fa-image';
-        
-        return 'fas fa-file';
-    }
+	function openEntry(entry) {
+		if (entry.type === 'directory') {
+			navigateTo(resolvePath(currentPath, entry.name));
+		} else if (entry.type === 'app') {
+			onOpenApp(entry.appId);
+		} else if (entry.type === 'link') {
+			globalThis.open(entry.href, '_blank', 'noopener,noreferrer');
+		}
+	}
 
-    function getFileColor(item) {
-        if (item.color) return item.color;
-        
-        if (item.type === 'directory') return 'kali-blue';
-        if (item.name.endsWith('.pdf')) return 'kali-red';
-        if (item.name.endsWith('.txt')) return 'kali-green';
-        if (item.name.endsWith('.md')) return 'kali-blue';
-        if (item.name.endsWith('.jpg') || item.name.endsWith('.png')) return 'kali-yellow';
-        
-        return 'text-gray-400';
-    }
+	function navigateBreadcrumb(index) {
+		navigateTo(`/${breadcrumbs.slice(0, index + 1).join('/')}`);
+	}
 
-    function formatFileSize(size) {
-        if (!size) return '';
-        return size;
-    }
-
-    onMount(() => {
-        // Initialize current directory
-        currentDirectory = fileSystem[currentPath];
-    });
+	function getFileIcon(entry) {
+		if (entry.icon) return entry.icon;
+		if (entry.type === 'directory') return 'fas fa-folder';
+		return 'fas fa-file';
+	}
 </script>
 
-<div class="w-full h-full file-manager overflow-hidden flex flex-col">
+<section class="file-manager flex h-full w-full flex-col overflow-hidden" aria-label="File manager">
+	<header class="flex items-center justify-between border-b border-gray-600 px-3 py-2">
+		<div class="flex items-center gap-1" aria-label="Navigation controls">
+			<button
+				type="button"
+				class="rounded px-2 py-1 hover:bg-gray-600 disabled:opacity-40"
+				on:click={goBack}
+				disabled={historyIndex === 0}
+				aria-label="Back"
+			>
+				<i class="fas fa-arrow-left" aria-hidden="true"></i>
+			</button>
+			<button
+				type="button"
+				class="rounded px-2 py-1 hover:bg-gray-600 disabled:opacity-40"
+				on:click={goForward}
+				disabled={historyIndex >= history.length - 1}
+				aria-label="Forward"
+			>
+				<i class="fas fa-arrow-right" aria-hidden="true"></i>
+			</button>
+			<button
+				type="button"
+				class="rounded px-2 py-1 hover:bg-gray-600 disabled:opacity-40"
+				on:click={() => navigateTo(resolvePath(currentPath, '..'))}
+				disabled={currentPath === HOME_DIRECTORY}
+				aria-label="Parent folder"
+			>
+				<i class="fas fa-arrow-up" aria-hidden="true"></i>
+			</button>
+			<button
+				type="button"
+				class="rounded px-2 py-1 hover:bg-gray-600"
+				on:click={() => navigateTo(HOME_DIRECTORY)}
+				aria-label="Home folder"
+			>
+				<i class="fas fa-home" aria-hidden="true"></i>
+			</button>
+		</div>
 
-    <!-- Toolbar -->
-    <div class="px-4 py-2 border-b border-gray-600 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-            <button
-                class="px-2 py-1 text-xs rounded hover:bg-gray-600"
-                on:click={() => currentPath !== '/home/samuel' && navigateTo('..')}
-                disabled={currentPath === '/home/samuel'}
-            >
-                <i class="fas fa-arrow-left"></i>
-            </button>
-            <button class="px-2 py-1 text-xs rounded hover:bg-gray-600">
-                <i class="fas fa-arrow-right"></i>
-            </button>
-            <button class="px-2 py-1 text-xs rounded hover:bg-gray-600">
-                <i class="fas fa-arrow-up"></i>
-            </button>
-            <div class="w-px h-4 bg-gray-600 mx-2"></div>
-            <button class="px-2 py-1 text-xs rounded hover:bg-gray-600">
-                <i class="fas fa-home"></i>
-            </button>
-        </div>
-        
-        <div class="flex items-center gap-2">
-            <button
-                class="px-2 py-1 text-xs rounded hover:bg-gray-600"
-                class:bg-gray-600={viewMode === 'grid'}
-                on:click={() => viewMode = 'grid'}
-            >
-                <i class="fas fa-th"></i>
-            </button>
-            <button
-                class="px-2 py-1 text-xs rounded hover:bg-gray-600"
-                class:bg-gray-600={viewMode === 'list'}
-                on:click={() => viewMode = 'list'}
-            >
-                <i class="fas fa-list"></i>
-            </button>
-        </div>
-    </div>
+		<div class="flex items-center gap-1" aria-label="View controls">
+			<button
+				type="button"
+				class="rounded px-2 py-1 hover:bg-gray-600"
+				class:bg-gray-600={viewMode === 'grid'}
+				aria-pressed={viewMode === 'grid'}
+				on:click={() => (viewMode = 'grid')}
+				aria-label="Grid view"
+			>
+				<i class="fas fa-th" aria-hidden="true"></i>
+			</button>
+			<button
+				type="button"
+				class="rounded px-2 py-1 hover:bg-gray-600"
+				class:bg-gray-600={viewMode === 'list'}
+				aria-pressed={viewMode === 'list'}
+				on:click={() => (viewMode = 'list')}
+				aria-label="List view"
+			>
+				<i class="fas fa-list" aria-hidden="true"></i>
+			</button>
+		</div>
+	</header>
 
-    <!-- Address Bar -->
-    <div class="px-4 py-2 border-b border-gray-600">
-        <div class="flex items-center gap-2">
-            <span class="text-xs mono text-gray-400">Path:</span>
-            <span class="text-xs mono text-white">{currentPath}</span>
-        </div>
-    </div>
+	<nav
+		class="flex flex-wrap items-center gap-1 border-b border-gray-600 px-4 py-2 text-xs"
+		aria-label="Current path"
+	>
+		<button type="button" class="text-gray-300 hover:text-white" on:click={() => navigateTo('/')}>
+			Root
+		</button>
+		{#each breadcrumbs as part, index}
+			<span class="text-gray-500" aria-hidden="true">/</span>
+			<button
+				type="button"
+				class="text-gray-300 hover:text-white"
+				on:click={() => navigateBreadcrumb(index)}
+			>
+				{part}
+			</button>
+		{/each}
+	</nav>
 
-    <!-- File List -->
-    <div class="flex-1 overflow-y-auto p-4">
-        {#if currentDirectory && currentDirectory.children}
-            {#if viewMode === 'grid'}
-                <div class="grid grid-cols-6 gap-4">
-                    {#each Object.entries(currentDirectory.children) as [name, item]}
-                        <div
-                            class="file-item p-3 text-center cursor-pointer rounded"
-                            class:bg-blue-500={selectedItems.some(s => s.name === name)}
-                            class:bg-opacity-20={selectedItems.some(s => s.name === name)}
-                            role="button"
-                            tabindex="0"
-                            on:click={(e) => handleItemClick({...item, name}, e)}
-                            on:dblclick={() => handleItemDoubleClick({...item, name})}
-                            on:keydown={(e) => e.key === 'Enter' && handleItemClick({...item, name}, e)}
-                        >
-                            <div class="text-3xl mb-2 {getFileColor({...item, name})}">
-                                <i class={getFileIcon({...item, name})}></i>
-                            </div>
-                            <div class="text-xs text-white font-medium leading-tight break-words">
-                                {name}
-                            </div>
-                            {#if item.size}
-                                <div class="text-xs text-gray-400 mt-1">
-                                    {formatFileSize(item.size)}
-                                </div>
-                            {/if}
-                        </div>
-                    {/each}
-                </div>
-            {:else}
-                <div class="space-y-1">
-                    {#each Object.entries(currentDirectory.children) as [name, item]}
-                        <div
-                            class="file-item p-2 flex items-center gap-3 cursor-pointer rounded"
-                            class:bg-blue-500={selectedItems.some(s => s.name === name)}
-                            class:bg-opacity-20={selectedItems.some(s => s.name === name)}
-                            role="button"
-                            tabindex="0"
-                            on:click={(e) => handleItemClick({...item, name}, e)}
-                            on:dblclick={() => handleItemDoubleClick({...item, name})}
-                            on:keydown={(e) => e.key === 'Enter' && handleItemClick({...item, name}, e)}
-                        >
-                            <div class="text-lg {getFileColor({...item, name})}">
-                                <i class={getFileIcon({...item, name})}></i>
-                            </div>
-                            <div class="flex-1 text-sm text-white">
-                                {name}
-                            </div>
-                            <div class="text-xs text-gray-400">
-                                {item.type === 'directory' ? 'Directory' : 'File'}
-                            </div>
-                            {#if item.size}
-                                <div class="text-xs text-gray-400">
-                                    {formatFileSize(item.size)}
-                                </div>
-                            {/if}
-                        </div>
-                    {/each}
-                </div>
-            {/if}
-        {:else}
-            <div class="text-center text-gray-400 py-8">
-                <i class="fas fa-folder-open text-4xl mb-2"></i>
-                <div>Directory not found</div>
-            </div>
-        {/if}
-    </div>
-</div>
+	<div class="flex-1 overflow-y-auto p-4">
+		{#if entries.length === 0}
+			<div class="flex h-full flex-col items-center justify-center text-gray-400">
+				<i class="fas fa-folder-open mb-3 text-4xl" aria-hidden="true"></i>
+				<p>This folder is empty.</p>
+			</div>
+		{:else if viewMode === 'grid'}
+			<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+				{#each entries as entry (entry.name)}
+					<button
+						type="button"
+						class="file-item flex min-w-0 flex-col items-center rounded p-3 text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400"
+						on:click={() => openEntry(entry)}
+					>
+						<i
+							class={`${getFileIcon(entry)} ${entry.color ?? 'text-gray-400'} mb-2 text-3xl`}
+							aria-hidden="true"
+						></i>
+						<span class="w-full break-words text-xs font-medium text-white">{entry.name}</span>
+						{#if entry.size}<span class="mt-1 text-[11px] text-gray-400">{entry.size}</span>{/if}
+					</button>
+				{/each}
+			</div>
+		{:else}
+			<div class="space-y-1">
+				{#each entries as entry (entry.name)}
+					<button
+						type="button"
+						class="file-item flex w-full items-center gap-3 rounded p-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400"
+						on:click={() => openEntry(entry)}
+					>
+						<i
+							class={`${getFileIcon(entry)} ${entry.color ?? 'text-gray-400'} text-lg`}
+							aria-hidden="true"
+						></i>
+						<span class="min-w-0 flex-1 truncate text-sm text-white">{entry.name}</span>
+						<span class="text-xs capitalize text-gray-400">{entry.type}</span>
+						{#if entry.size}<span class="text-xs text-gray-400">{entry.size}</span>{/if}
+					</button>
+				{/each}
+			</div>
+		{/if}
+	</div>
+</section>

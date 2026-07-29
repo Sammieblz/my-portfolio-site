@@ -1,0 +1,15 @@
+{
+	"extends": "./.svelte-kit/tsconfig.json",
+	"compilerOptions": {
+		"allowJs": true,
+		"checkJs": false,
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		"resolveJsonModule": true,
+		"skipLibCheck": true,
+		"strict": true,
+		"moduleResolution": "bundler"
+	},
+	"include": ["src/**/*.js", "src/**/*.svelte", "tests/**/*.js", "vite.config.js"],
+	"exclude": ["node_modules", "build", ".svelte-kit", "coverage", "playwright-report"]
+}
