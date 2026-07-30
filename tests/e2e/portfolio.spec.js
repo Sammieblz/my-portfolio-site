@@ -248,6 +248,9 @@ test('serves metadata, security headers, PWA assets, and the stable resume', asy
 	]) {
 		expect((await page.request.get(asset)).status(), `${asset} should be available`).toBe(200);
 	}
+	const resumeResponse = await page.request.get('/document/Samuel_Ndubuisi_Resume.pdf');
+	expect(resumeResponse.headers()['content-type']).toContain('application/pdf');
+	expect(resumeResponse.headers()['x-frame-options']).toBeUndefined();
 
 	const manifest = await (await page.request.get('/site.webmanifest')).json();
 	expect(manifest.icons).toEqual(
